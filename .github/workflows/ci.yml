@@ -1,0 +1,65 @@
+name: Workflow for CI
+on: [ push, pull_request ]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.19', '1.20', '1.22.x' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Ensure the Go module is nice and tidy
+        run: |
+          go mod tidy && git diff --exit-code go.mod go.sum
+        # We set the shell explicitly, here, and in other golang test actions,
+        # as by default multi-line shell scripts do not error out on the first
+        # failed command. Since we want an error reported if any of the lines
+        # fail, we set the shell explicitly:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions?ref=cloudtechsimplified.com#exit-codes-and-error-action-preference
+        shell: bash
+
+      - name: Install Tools
+        run: |
+          pushd "$(mktemp -d)"
+          go mod init example.com/m # fake module
+          go install github.com/onsi/ginkgo/v2/ginkgo@v2.17.0
+          go install honnef.co/go/tools/cmd/staticcheck@2023.1.6
+          popd
+        shell: bash
+
+      - name: Verify Go Modules Setup
+        run: go mod verify
+        shell: bash
+
+      - name: Build
+        run: go build -v ./...
+        shell: bash
+
+      - name: Sanity Check (staticcheck)
+        run: staticcheck ./...
+        shell: bash
+
+      - name: Test
+        run: ginkgo -v -race -coverprofile=coverage.out -coverpkg=./... ./...
+        shell: bash
+
+      - name: Run tests and collect coverage
+        run: pytest --cov app ${{ env.CODECOV_ATS_TESTS }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@54bcd8715eee62d40e33596ef5e8f0f48dbbccab # v4.1.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: maguro/gslog
+          flags: smart-tests
+          verbose: true
+
