@@ -5,6 +5,7 @@ go 1.22
 require (
 	cloud.google.com/go/logging v1.9.0
 	github.com/golang/protobuf v1.5.3
+	github.com/magiconair/properties v1.8.7
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
 	github.com/stretchr/testify v1.9.0
