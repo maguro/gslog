@@ -101,6 +101,9 @@ func valToStruct(v slog.Value) (val *structpb.Value, ok bool) {
 		buf = append(buf, byte('"'))
 		return &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: string(buf)}}, true
 	case slog.KindGroup:
+		if len(v.Group()) == 0 {
+			return nil, false
+		}
 		p2 := &structpb.Struct{Fields: make(map[string]*spb.Value)}
 		for _, b := range v.Group() {
 			decorateWith(p2, b)
