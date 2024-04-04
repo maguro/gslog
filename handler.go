@@ -89,10 +89,26 @@ func newGcpLoggerWithOptions(logger logger, o *Options) *GcpHandler {
 	return h
 }
 
+// WithLeveler returns a copy of the handler, provisioned with the supplied
+// leveler.
+func (h *GcpHandler) WithLeveler(leveler slog.Leveler) *GcpHandler {
+	if leveler == nil {
+		panic("Leveler is nil")
+	}
+
+	h2 := h.clone()
+	h2.level = leveler
+
+	return h2
+}
+
 func (h *GcpHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return h.level.Level() <= level
 }
 
+// Handle will handle a slog.Record, as described in the interface's
+// documentation.  It will translate the slog.Record into a logging.Entry
+// that's filled with a *structpb.Value as a Entry Payload.
 func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	payload2 := proto.Clone(h.payload).(*structpb.Struct)
 	current := fromPath(payload2, h.groups)
