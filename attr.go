@@ -26,10 +26,6 @@ import (
 )
 
 var (
-	noopAttrMapper AttrMapper = func(_ []string, a slog.Attr) slog.Attr {
-		return a
-	}
-
 	timePool = sync.Pool{
 		New: func() any {
 			b := make([]byte, 0, len(time.RFC3339Nano))

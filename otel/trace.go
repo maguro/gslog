@@ -27,16 +27,16 @@ import (
 	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/internal/options"
 )
 
 // WithOtelTracing returns a gslog.Option that directs that the slog.Handler
 // to include OpenTelemetry tracing.
-func WithOtelTracing() gslog.Option {
-	return gslog.OptionFunc(func(options *gslog.Options) error {
+func WithOtelTracing() options.OptionProcessor {
+	return func(options *options.Options) error {
 		options.EntryAugmentors = append(options.EntryAugmentors, addTrace)
 		return nil
-	})
+	}
 }
 
 func addTrace(ctx context.Context, e *logging.Entry) {

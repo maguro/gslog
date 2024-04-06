@@ -23,21 +23,22 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 
 	"m4o.io/gslog"
+	"m4o.io/gslog/internal/options"
 )
 
 var _ = Describe("Kubernetes podinfo labels", func() {
 	var ctx context.Context
-	var options *gslog.Options
+	var o *options.Options
 	var root string
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		options = &gslog.Options{}
+		o = &options.Options{}
 		Ω(1).Should(Equal(1))
 	})
 
 	JustBeforeEach(func() {
-		err := gslog.WithPodinfoLabels(root).Process(options)
+		err := gslog.WithPodinfoLabels(root)(o)
 		Ω(err).ShouldNot(HaveOccurred())
 	})
 
@@ -49,7 +50,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 		It("the labels are loaded and properly prefixed",
 			func() {
 				e := &logging.Entry{}
-				for _, a := range options.EntryAugmentors {
+				for _, a := range o.EntryAugmentors {
 					a(ctx, e)
 				}
 
@@ -70,7 +71,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 		It("no error occurs and no labels are loaded",
 			func() {
 				e := &logging.Entry{}
-				for _, a := range options.EntryAugmentors {
+				for _, a := range o.EntryAugmentors {
 					a(ctx, e)
 				}
 
@@ -86,7 +87,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 		It("no error occurs and no labels are loaded",
 			func() {
 				e := &logging.Entry{}
-				for _, a := range options.EntryAugmentors {
+				for _, a := range o.EntryAugmentors {
 					a(ctx, e)
 				}
 

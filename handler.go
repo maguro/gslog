@@ -25,6 +25,8 @@ import (
 	logpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/proto"
+
+	"m4o.io/gslog/internal/options"
 )
 
 const (
@@ -40,7 +42,7 @@ type GcpHandler struct {
 	// addSource causes the handler to compute the source code position
 	// of the log statement and add a SourceKey attribute to the output.
 	addSource       bool
-	entryAugmentors []AugmentEntryFn
+	entryAugmentors []func(ctx context.Context, e *logging.Entry)
 	replaceAttr     AttrMapper
 
 	payload *structpb.Struct
@@ -50,11 +52,11 @@ type GcpHandler struct {
 var _ slog.Handler = &GcpHandler{}
 
 // NewGcpHandler creates a Google Cloud Logging backed log.Logger.
-func NewGcpHandler(logger *logging.Logger, opts ...Option) (*GcpHandler, error) {
+func NewGcpHandler(logger *logging.Logger, opts ...options.OptionProcessor) (*GcpHandler, error) {
 	if logger == nil {
 		panic("client is nil")
 	}
-	o, err := applyOptions(opts...)
+	o, err := options.ApplyOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +64,11 @@ func NewGcpHandler(logger *logging.Logger, opts ...Option) (*GcpHandler, error) 
 	return newGcpLoggerWithOptions(logger, o), nil
 }
 
-func NewGcpLoggerWithOptions(logger logger, opts ...Option) *GcpHandler {
+func NewGcpLoggerWithOptions(logger logger, opts ...options.OptionProcessor) *GcpHandler {
 	if logger == nil {
 		panic("client is nil")
 	}
-	o, err := applyOptions(opts...)
+	o, err := options.ApplyOptions(opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -74,14 +76,14 @@ func NewGcpLoggerWithOptions(logger logger, opts ...Option) *GcpHandler {
 	return newGcpLoggerWithOptions(logger, o)
 }
 
-func newGcpLoggerWithOptions(logger logger, o *Options) *GcpHandler {
+func newGcpLoggerWithOptions(logger logger, o *options.Options) *GcpHandler {
 	h := &GcpHandler{
 		log:   logger,
-		level: o.level,
+		level: o.Level,
 
-		addSource:       o.addSource,
+		addSource:       o.AddSource,
 		entryAugmentors: o.EntryAugmentors,
-		replaceAttr:     o.replaceAttr,
+		replaceAttr:     o.ReplaceAttr,
 
 		payload: &structpb.Struct{Fields: make(map[string]*structpb.Value)},
 	}

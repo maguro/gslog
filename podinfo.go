@@ -22,6 +22,8 @@ import (
 
 	"cloud.google.com/go/logging"
 	"github.com/magiconair/properties"
+
+	"m4o.io/gslog/internal/options"
 )
 
 const (
@@ -35,11 +37,11 @@ const (
 //
 // The labels are prefixed with "k8s-pod/" to adhere to the Google Cloud
 // Logging conventions for Kubernetes Pod labels.
-func WithPodinfoLabels(root string) Option {
-	return OptionFunc(func(options *Options) error {
+func WithPodinfoLabels(root string) options.OptionProcessor {
+	return func(options *options.Options) error {
 		options.EntryAugmentors = append(options.EntryAugmentors, podinfoAugmentor(root))
 		return nil
-	})
+	}
 }
 
 func podinfoAugmentor(root string) func(ctx context.Context, e *logging.Entry) {

@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"m4o.io/gslog/internal/options"
 )
 
 const (
@@ -37,7 +39,7 @@ func TestLogLevel(t *testing.T) {
 		err              error
 		expected         slog.Level
 	}{
-		"do nothing":                 {LevelUnknown, LevelUnknown, false, naString, naString, errNoLogLevelSet, LevelUnknown},
+		"do nothing":                 {LevelUnknown, LevelUnknown, false, naString, naString, ErrNoLogLevelSet, LevelUnknown},
 		"default":                    {LevelUnknown, slog.LevelInfo, false, naString, naString, nil, slog.LevelInfo},
 		"default missing env var":    {LevelUnknown, slog.LevelInfo, true, naString, naString, nil, slog.LevelInfo},
 		"explicit":                   {slog.LevelInfo, LevelUnknown, false, naString, naString, nil, slog.LevelInfo},
@@ -49,7 +51,7 @@ func TestLogLevel(t *testing.T) {
 		"env var INFO":               {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
 		"env var WARN":               {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "WARN", nil, slog.LevelWarn},
 		"env var ERROR":              {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "ERROR", nil, slog.LevelError},
-		"env var missing":            {LevelUnknown, LevelUnknown, true, naString, naString, errNoLogLevelSet, LevelUnknown},
+		"env var missing":            {LevelUnknown, LevelUnknown, true, naString, naString, ErrNoLogLevelSet, LevelUnknown},
 		"env var overrides default":  {LevelUnknown, slog.LevelDebug, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
 		"env var high custom level":  {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "32", nil, slog.Level(32)},
 		"env var low custom level":   {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "-8", nil, slog.Level(-8)},
@@ -57,7 +59,7 @@ func TestLogLevel(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			var opts []Option
+			var opts []options.OptionProcessor
 			if tc.explicitLogLevel != LevelUnknown {
 				opts = append(opts, WithLogLevel(tc.explicitLogLevel))
 			}
@@ -74,21 +76,21 @@ func TestLogLevel(t *testing.T) {
 				opts = append(opts, WithLogLevelFromEnvVar())
 			}
 
-			o, err := applyOptions(opts...)
+			o, err := options.ApplyOptions(opts...)
 			if tc.err != nil {
 				assert.Equal(t, tc.err, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tc.expected, o.level)
+				assert.Equal(t, tc.expected, o.Level)
 			}
 		})
 	}
 }
 
 func TestWithSourceAdded(t *testing.T) {
-	o, err := applyOptions(WithSourceAdded(), WithDefaultLogLevel(slog.LevelInfo))
+	o, err := options.ApplyOptions(WithSourceAdded(), WithDefaultLogLevel(slog.LevelInfo))
 	assert.NoError(t, err)
-	assert.True(t, o.addSource)
+	assert.True(t, o.AddSource)
 }
 
 func TestWithReplaceAttr(t *testing.T) {
@@ -97,21 +99,21 @@ func TestWithReplaceAttr(t *testing.T) {
 		return s
 	}
 
-	o, err := applyOptions(WithReplaceAttr(ra), WithDefaultLogLevel(slog.LevelInfo))
+	o, err := options.ApplyOptions(WithReplaceAttr(ra), WithDefaultLogLevel(slog.LevelInfo))
 	assert.NoError(t, err)
-	assert.Equal(t, s, o.replaceAttr(nil, slog.String("unused", "string")))
+	assert.Equal(t, s, o.ReplaceAttr(nil, slog.String("unused", "string")))
 }
 
 func TestApplyOptions_error(t *testing.T) {
 	e := errors.New("expected")
 
-	_, err := applyOptions(
-		OptionFunc(func(o *Options) error {
+	_, err := options.ApplyOptions(
+		func(o *options.Options) error {
 			return e
-		}),
-		OptionFunc(func(o *Options) error {
+		},
+		func(o *options.Options) error {
 			return errors.New("ouch")
-		}),
+		},
 	)
 	assert.ErrorIs(t, err, e)
 }
