@@ -15,6 +15,7 @@
 package gslog
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -43,7 +44,11 @@ func TestLogLevel(t *testing.T) {
 		"explicit overrides env var": {slog.LevelInfo, LevelUnknown, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
 		"explicit overrides default": {slog.LevelInfo, slog.LevelDebug, false, naString, naString, nil, slog.LevelInfo},
 		"explicit overrides all":     {slog.LevelInfo, slog.LevelDebug, true, envVarLogLevelKey, "ERROR", nil, slog.LevelInfo},
-		"env var":                    {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
+		"env var garbage":            {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "OUCH", nil, slog.LevelInfo},
+		"env var DEBUG":              {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "DEBUG", nil, slog.LevelDebug},
+		"env var INFO":               {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
+		"env var WARN":               {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "WARN", nil, slog.LevelWarn},
+		"env var ERROR":              {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "ERROR", nil, slog.LevelError},
 		"env var missing":            {LevelUnknown, LevelUnknown, true, naString, naString, errNoLogLevelSet, LevelUnknown},
 		"env var overrides default":  {LevelUnknown, slog.LevelDebug, true, envVarLogLevelKey, "INFO", nil, slog.LevelInfo},
 		"env var high custom level":  {LevelUnknown, LevelUnknown, true, envVarLogLevelKey, "32", nil, slog.Level(32)},
@@ -52,7 +57,7 @@ func TestLogLevel(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			opts := []Option{}
+			var opts []Option
 			if tc.explicitLogLevel != LevelUnknown {
 				opts = append(opts, WithLogLevel(tc.explicitLogLevel))
 			}
@@ -78,4 +83,35 @@ func TestLogLevel(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithSourceAdded(t *testing.T) {
+	o, err := applyOptions(WithSourceAdded(), WithDefaultLogLevel(slog.LevelInfo))
+	assert.NoError(t, err)
+	assert.True(t, o.addSource)
+}
+
+func TestWithReplaceAttr(t *testing.T) {
+	s := slog.String("foo", "bar")
+	var ra AttrMapper = func(groups []string, a slog.Attr) slog.Attr {
+		return s
+	}
+
+	o, err := applyOptions(WithReplaceAttr(ra), WithDefaultLogLevel(slog.LevelInfo))
+	assert.NoError(t, err)
+	assert.Equal(t, s, o.replaceAttr(nil, slog.String("unused", "string")))
+}
+
+func TestApplyOptions_error(t *testing.T) {
+	e := errors.New("expected")
+
+	_, err := applyOptions(
+		OptionFunc(func(o *Options) error {
+			return e
+		}),
+		OptionFunc(func(o *Options) error {
+			return errors.New("ouch")
+		}),
+	)
+	assert.ErrorIs(t, err, e)
 }

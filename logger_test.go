@@ -16,26 +16,19 @@ package gslog
 
 import (
 	"context"
+	"testing"
 
 	"cloud.google.com/go/logging"
+	"github.com/stretchr/testify/assert"
 )
 
-// logger is wraps the set of methods that are used when interacting with a
-// logging.Logger.  This interface facilitates stubbing out calls to the logger
-// for the purposes of testing and benchmarking.
-type logger interface {
-	Log(e logging.Entry)
-	LogSync(ctx context.Context, e logging.Entry) error
+func TestDiscard_Log(t *testing.T) {
+	l := discard{}
+	l.Log(logging.Entry{})
 }
 
-// discard can be used as a do-nothing logger that can be used for testing and
-// to stub out Google Cloud Logging when benchmarking.
-type discard struct{}
-
-func (d discard) Log(_ logging.Entry) {}
-
-func (d discard) LogSync(_ context.Context, _ logging.Entry) error {
-	return nil
+func TestDiscard_LogSync(t *testing.T) {
+	l := discard{}
+	err := l.LogSync(context.Background(), logging.Entry{})
+	assert.NoError(t, err)
 }
-
-var Discard logger = discard{}

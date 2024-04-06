@@ -135,6 +135,7 @@ func WithLogLevelFromEnvVar() Option {
 		case "ERROR":
 			o.envVarLogLevel = slog.LevelError
 		default:
+			o.envVarLogLevel = slog.LevelInfo
 		}
 
 		return nil
