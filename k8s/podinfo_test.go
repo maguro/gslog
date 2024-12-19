@@ -34,7 +34,6 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		o = &options.Options{}
-		Ω(1).Should(Equal(1))
 	})
 
 	JustBeforeEach(func() {
