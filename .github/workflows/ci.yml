@@ -31,8 +31,8 @@ jobs:
         run: |
           pushd "$(mktemp -d)"
           go mod init example.com/m # fake module
-          go install github.com/onsi/ginkgo/v2/ginkgo@v2.17.0
-          go install honnef.co/go/tools/cmd/staticcheck@2023.1.6
+          go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.0
+          go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
           popd
         shell: bash
 
