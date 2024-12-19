@@ -105,7 +105,7 @@ func (h *GcpHandler) Enabled(_ context.Context, level slog.Level) bool {
 
 // Handle will handle a slog.Record, as described in the interface's
 // documentation.  It will translate the slog.Record into a logging.Entry
-// that's filled with a *spb.Value as a Entry Payload.
+// that's filled with a *spb.Value as an Entry Payload.
 func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	//nolint:forcetypeassert
 	payload2 := proto.Clone(h.payload).(*spb.Struct)

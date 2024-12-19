@@ -39,7 +39,7 @@ const (
 	PodPrefix = "k8s-pod/"
 )
 
-// WithPodinfoLabels returns a Option that directs that the slog.Handler to
+// WithPodinfoLabels returns an Option that directs that the slog.Handler to
 // include labels from the Kubernetes Downward API podinfo labels file.  The
 // labels file is expected to be found in the directory specified by root and
 // MUST be named "labels", per the Kubernetes Downward API for Pods.

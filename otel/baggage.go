@@ -32,13 +32,13 @@ const (
 	OtelBaggageKey = "otel-baggage/"
 )
 
-// WithOtelBaggage returns an gslog option that directs that the slog.Handler
+// WithOtelBaggage returns a gslog option that directs that the slog.Handler
 // to include OpenTelemetry baggage.  The baggage.Baggage is obtained from the
 // context, if available, and added as attributes.
 //
 // The baggage keys are prefixed with "otel-baggage/" to mitigate collision
 // with other log attributes.  Baggage that have no properties are mapped to
-// an slog.Attr for a string value.  Baggage that have properties mapped to a
+// a slog.Attr for a string value.  Baggage that have properties mapped to a
 // slog.Group with two keys, "value" which is the value of the baggage, and
 // "properties" which is the properties of the baggage as a slog.Group.
 // Baggage properties that have no value are mapped to slog.Any with a nil
