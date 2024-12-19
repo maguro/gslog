@@ -32,25 +32,25 @@ func Label(key, value string) LabelPair {
 
 type labelsKey struct{}
 
-type labeler func(ctx context.Context, lbls map[string]string)
+type labeler func(ctx context.Context, labels map[string]string)
 
 func doNothing(context.Context, map[string]string) {}
 
 // WithLabels returns a new Context with labels to be used in the GCP log
 // entries produced using that context.
-func WithLabels(ctx context.Context, labels ...LabelPair) context.Context {
+func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	parent := labelsFrom(ctx)
 
 	return context.WithValue(ctx, labelsKey{},
-		labeler(func(ctx context.Context, lbls map[string]string) {
-			parent(ctx, lbls)
+		labeler(func(ctx context.Context, labels map[string]string) {
+			parent(ctx, labels)
 
-			for _, l := range labels {
-				if !l.valid {
+			for _, labelPair := range labelPairs {
+				if !labelPair.valid {
 					panic("invalid label passed to WithLabels()")
 				}
 
-				lbls[l.key] = l.val
+				labels[labelPair.key] = labelPair.val
 			}
 		}),
 	)
@@ -61,8 +61,8 @@ func WithLabels(ctx context.Context, labels ...LabelPair) context.Context {
 func ExtractLabels(ctx context.Context) map[string]string {
 	labels := make(map[string]string)
 
-	lblr := labelsFrom(ctx)
-	lblr(ctx, labels)
+	labeler := labelsFrom(ctx)
+	labeler(ctx, labels)
 
 	return labels
 }

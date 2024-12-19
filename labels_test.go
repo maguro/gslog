@@ -49,11 +49,11 @@ var _ = Describe("gslog labels", func() {
 		})
 
 		It("they can be extracted from the context", func() {
-			lbls := gslog.ExtractLabels(ctx)
+			labels := gslog.ExtractLabels(ctx)
 
-			Ω(lbls).Should(HaveLen(2))
-			Ω(lbls).Should(HaveKeyWithValue("how", "now"))
-			Ω(lbls).Should(HaveKeyWithValue("brown", "cow"))
+			Ω(labels).Should(HaveLen(2))
+			Ω(labels).Should(HaveKeyWithValue("how", "now"))
+			Ω(labels).Should(HaveKeyWithValue("brown", "cow"))
 		})
 
 		Context("and a label overridden", func() {
@@ -62,11 +62,11 @@ var _ = Describe("gslog labels", func() {
 			})
 
 			It("the overrides can be extracted from the context", func() {
-				lbls := gslog.ExtractLabels(ctx)
+				labels := gslog.ExtractLabels(ctx)
 
-				Ω(lbls).Should(HaveLen(2))
-				Ω(lbls).Should(HaveKeyWithValue("how", "now"))
-				Ω(lbls).Should(HaveKeyWithValue("brown", "cat"))
+				Ω(labels).Should(HaveLen(2))
+				Ω(labels).Should(HaveKeyWithValue("how", "now"))
+				Ω(labels).Should(HaveKeyWithValue("brown", "cat"))
 			})
 		})
 	})
