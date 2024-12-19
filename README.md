@@ -25,7 +25,8 @@ The GCL Handler's options include a number of ways to include information from
 "outside" frameworks:
 
 - Labels attached to the context, via `gslog.WithLabels(ctx, ...labels)`, which
-  are added to the GCL entry, `logging.Entry`, `Labels` field.
+  are added to the GCL entry, `logging.Entry`, `Labels` field.  The number of
+  labels is limited to 64.
 - [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) attached to the context which are
   added as attributes,
   `slog.Attr`, to the logging record, `slog.Record`. The baggage keys are prefixed

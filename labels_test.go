@@ -45,7 +45,10 @@ var _ = Describe("gslog labels", func() {
 
 	When("context is initialized with several labels", func() {
 		BeforeEach(func() {
-			ctx = gslog.WithLabels(ctx, gslog.Label("how", "now"), gslog.Label("brown", "cow"))
+			ctx = gslog.WithLabels(ctx,
+				gslog.Label("how", "now"),
+				gslog.Label("brown", "cow"),
+			)
 		})
 
 		It("they can be extracted from the context", func() {
@@ -68,6 +71,30 @@ var _ = Describe("gslog labels", func() {
 				Ω(labels).Should(HaveKeyWithValue("how", "now"))
 				Ω(labels).Should(HaveKeyWithValue("brown", "cat"))
 			})
+		})
+	})
+
+	When("context is initialized with too many labels", func() {
+		BeforeEach(func() {
+			ctx = gslog.WithLabels(ctx,
+				gslog.Label("how", "now"),
+				gslog.Label("brown", "cow"),
+			)
+			for i := 0; i < 64; i++ {
+				key := fmt.Sprintf("key_%06d", i)
+				value := fmt.Sprintf("val_%06d", i)
+				ctx = gslog.WithLabels(ctx,
+					gslog.Label(key, value),
+				)
+			}
+		})
+
+		It("only 64 labels can be obtained from the context", func() {
+			labels := gslog.ExtractLabels(ctx)
+
+			Ω(labels).Should(HaveLen(64))
+			Ω(labels).Should(HaveKeyWithValue("how", "now"))
+			Ω(labels).Should(HaveKeyWithValue("brown", "cow"))
 		})
 	})
 })

@@ -138,7 +138,6 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	entry.Payload = payload2
 	entry.Timestamp = record.Time.UTC()
 	entry.Severity = level.ToSeverity(record.Level)
-	entry.Labels = ExtractLabels(ctx)
 
 	if h.addSource {
 		addSourceLocation(&entry, &record)
@@ -147,6 +146,8 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	for _, b := range h.entryAugmentors {
 		b(ctx, &entry, h.groups)
 	}
+
+	labelsEntryAugmentorFrom(ctx)(ctx, &entry, h.groups)
 
 	if entry.Severity >= logging.Critical {
 		err := h.log.LogSync(ctx, entry)
