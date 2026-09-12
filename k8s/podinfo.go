@@ -66,18 +66,31 @@ func podinfoAugmentor(root string) options.EntryAugmentor {
 		return func(_ context.Context, _ *logging.Entry, _ []string) {}
 	}
 
+	labels := podLabels(props)
+
 	return func(_ context.Context, entry *logging.Entry, _ []string) {
 		if entry.Labels == nil {
-			entry.Labels = make(map[string]string)
+			entry.Labels = make(map[string]string, len(labels))
 		}
 
-		for key, val := range props.Map() {
-			if val[0] == '"' {
-				val = val[1 : len(val)-1]
-			}
-
-			key = PodPrefix + key
+		for key, val := range labels {
 			entry.Labels[key] = val
 		}
 	}
+}
+
+// podLabels returns the labels in props with the quotes removed from each
+// value and the PodPrefix added to each key.
+func podLabels(props *properties.Properties) map[string]string {
+	labels := make(map[string]string, props.Len())
+
+	for key, val := range props.Map() {
+		if val[0] == '"' {
+			val = val[1 : len(val)-1]
+		}
+
+		labels[PodPrefix+key] = val
+	}
+
+	return labels
 }
