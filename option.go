@@ -22,22 +22,22 @@ import (
 	"m4o.io/gslog/internal/options"
 )
 
-// Options holds information needed to construct an instance of GcpHandler.
+// Options holds the information necessary to construct an instance of
+// GcpHandler.
 type Options struct {
 	options.Options
 }
 
 // WithLogLeveler returns an option that specifies the slog.Leveler for logging.
-// Explicitly setting the log level here takes precedence over the other
-// options.
+// This option has precedence over the other log level options.
 func WithLogLeveler(logLevel slog.Leveler) options.OptionProcessor {
 	return func(o *options.Options) {
 		o.ExplicitLogLevel = logLevel
 	}
 }
 
-// WithLogLevelFromEnvVar returns an option that specifies the log level
-// for logging comes from tne environmental variable specified by the key.
+// WithLogLevelFromEnvVar returns an option that reads the log level from the
+// environment variable that key names.
 func WithLogLevelFromEnvVar(key string) options.OptionProcessor {
 	if key == "" {
 		panic("Env var key is empty")
@@ -86,16 +86,17 @@ func WithDefaultLogLeveler(defaultLogLevel slog.Leveler) options.OptionProcessor
 }
 
 // WithSourceAdded returns an option that causes the handler to compute the
-// source code position of the log statement and add a slog.SourceKey attribute
-// to the output.
+// source code position of the log statement.  The handler sets the position
+// in the SourceLocation field of the entry.
 func WithSourceAdded() options.OptionProcessor {
 	return func(o *options.Options) {
 		o.AddSource = true
 	}
 }
 
-// WithReplaceAttr returns an option that specifies an attribute mapper used to
-// rewrite each non-group attribute before it is logged.
+// WithReplaceAttr returns an option that specifies an attribute mapper.  The
+// handler calls the mapper to rewrite each non-group attribute before the
+// handler logs the attribute.
 func WithReplaceAttr(replaceAttr AttrMapper) options.OptionProcessor {
 	return func(o *options.Options) {
 		o.ReplaceAttr = replaceAttr

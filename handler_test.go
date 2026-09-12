@@ -1116,13 +1116,9 @@ func TestWithLeveler(t *testing.T) {
 	assert.NotNil(t, got.LogEntry.Payload)
 }
 
-// TestWithGroupSiblingsDoNotAlias exercises a slice aliasing bug in
-// WithGroup.  After three nested WithGroup calls the groups slice has
-// len 3, cap 4.  Deriving two sibling handlers from that parent appends
-// into the same spare slot, so the second sibling overwrites the first
-// sibling's group name while the first sibling's payload still holds the
-// original group.  Logging through the first sibling then walks a path
-// that does not exist in its payload.
+// TestWithGroupSiblingsDoNotAlias derives two sibling handlers from a
+// parent with three nested groups.  The groups slice of that parent has
+// spare capacity.  Each sibling must log under its own group.
 func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
 	got := &Got{}
 	parent := gslog.NewGcpHandler(got).WithGroup("a").WithGroup("b").WithGroup("c")
@@ -1164,8 +1160,8 @@ func TestLevelCritical(t *testing.T) {
 	assert.NotNil(t, got.SyncLogEntry.Payload)
 }
 
-// removeKeys returns a function suitable for HandlerOptions.Mapper
-// that removes all Attrs with the given keys.
+// removeKeys returns a function for HandlerOptions.Mapper.  The function
+// removes all Attrs that have the given keys.
 func removeKeys(keys ...string) func([]string, slog.Attr) slog.Attr {
 	return func(_ []string, a slog.Attr) slog.Attr {
 		for _, k := range keys {

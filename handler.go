@@ -34,19 +34,20 @@ import (
 )
 
 const (
-	// MessageKey is the key used for the message of the log call, per Google
-	// Cloud Logging. The associated value is a string.
+	// MessageKey is the key that Google Cloud Logging specifies for the
+	// message of the log call.  The value is a string.
 	MessageKey = "message"
 )
 
-// GcpHandler is a Google Cloud Logging backed slog handler.
+// GcpHandler is a slog.Handler that writes to Google Cloud Logging.
 type GcpHandler struct {
-	// *logging.Logger, except for testing
+	// log is a *logging.Logger, except in tests.
 	log   Logger
 	level slog.Leveler
 
 	// addSource causes the handler to compute the source code position
-	// of the log statement and add a SourceKey attribute to the output.
+	// of the log statement.  The handler sets the position in the
+	// SourceLocation field of the entry.
 	addSource       bool
 	entryAugmentors []options.EntryAugmentor
 	replaceAttr     attr.Mapper
@@ -57,7 +58,7 @@ type GcpHandler struct {
 
 var _ slog.Handler = (*GcpHandler)(nil)
 
-// NewGcpHandler creates a Google Cloud Logging backed log.Logger.
+// NewGcpHandler creates a GcpHandler that writes to Google Cloud Logging.
 func NewGcpHandler(logger Logger, opts ...options.OptionProcessor) *GcpHandler {
 	if logger == nil {
 		panic("client is nil")
@@ -84,8 +85,7 @@ func newGcpLoggerWithOptions(logger Logger, opts *options.Options) *GcpHandler {
 	return handler
 }
 
-// WithLeveler returns a copy of the handler, provisioned with the supplied
-// leveler.
+// WithLeveler returns a copy of the handler that uses the supplied leveler.
 func (h *GcpHandler) WithLeveler(leveler slog.Leveler) *GcpHandler {
 	if leveler == nil {
 		panic("Leveler is nil")
@@ -98,14 +98,14 @@ func (h *GcpHandler) WithLeveler(leveler slog.Leveler) *GcpHandler {
 }
 
 // Enabled reports whether the handler handles records at the given level.
-// The handler ignores records whose level is lower.
+// The handler ignores a record that has a lower level.
 func (h *GcpHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return h.level.Level() <= level
 }
 
-// Handle will handle a slog.Record, as described in the interface's
-// documentation.  It will translate the slog.Record into a logging.Entry
-// that's filled with a *spb.Value as an Entry Payload.
+// Handle handles a slog.Record as the slog.Handler interface specifies.
+// Handle translates the slog.Record into a logging.Entry.  The Payload of
+// the entry is a *spb.Struct.
 func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	payload := h.decorate(h.payload, h.groups, &record)
 
@@ -144,8 +144,8 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	return nil
 }
 
-// WithAttrs returns a copy of the handler whose attributes consists
-// of h's attributes followed by attrs.
+// WithAttrs returns a copy of the handler.  The attributes of the copy are
+// the attributes of h followed by attrs.
 func (h *GcpHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	handler2 := h.clone()
 
@@ -162,8 +162,8 @@ func (h *GcpHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return handler2
 }
 
-// WithGroup returns a copy of the handler with the given group
-// appended to the receiver's existing groups.
+// WithGroup returns a copy of the handler.  The groups of the copy are the
+// groups of h followed by name.
 func (h *GcpHandler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
@@ -186,12 +186,13 @@ func (h *GcpHandler) WithGroup(name string) slog.Handler {
 	return handler2
 }
 
-// Flush blocks until all currently buffered log entries are sent.
+// Flush blocks until all log entries that are currently buffered are sent.
 //
-// If any errors occurred since the last call to Flush from any Logger, or the
-// creation of the client if this is the first call, then Flush returns a non-nil
-// error with summary information about the errors. This information is unlikely to
-// be actionable. For more accurate error reporting, set Client.OnError.
+// Flush returns a non-nil error if errors occurred since the last call to
+// Flush from any Logger.  If this is the first call, the errors count from
+// the creation of the client.  The error contains summary information about
+// the errors.  This information is unlikely to be actionable.  For more
+// accurate error reports, set Client.OnError.
 func (h *GcpHandler) Flush() error {
 	if err := h.log.Flush(); err != nil {
 		return errors.Wrap(err, "failed to flush handler")
@@ -200,10 +201,10 @@ func (h *GcpHandler) Flush() error {
 	return nil
 }
 
-// decorate returns a copy of src with the attributes of record added to the
-// group at the end of groups.  The copy shares all values of src that are
-// not on the group path.  A group that is empty after the attributes are
-// added is removed from the copy.
+// decorate returns a copy of src.  The copy has the attributes of record in
+// the group at the end of groups.  The copy shares all values of src that
+// are not on the group path.  If a group on the path is empty after decorate
+// adds the attributes, decorate removes that group from the copy.
 func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Record) *spb.Struct {
 	dst := &spb.Struct{Fields: cloneFields(src)}
 

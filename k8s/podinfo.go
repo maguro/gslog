@@ -13,11 +13,11 @@
 // limitations under the License.
 
 /*
-Package k8s contains options for including labels from the Kubernetes Downward
+Package k8s contains options that include labels from the Kubernetes Downward
 API podinfo labels file in logging records.
 
-Placing the options in a separate package minimizes the dependencies pulled in
-by those who do not need labels from the Kubernetes Downward API.
+The options are in a separate package.  Because of this, a module that does
+not need labels from the Kubernetes Downward API has fewer dependencies.
 */
 package k8s
 
@@ -34,18 +34,18 @@ import (
 )
 
 const (
-	// PodPrefix is the prefix for labels obtained from the Kubernetes
+	// PodPrefix is the prefix for labels that come from the Kubernetes
 	// Downward API podinfo labels file.
 	PodPrefix = "k8s-pod/"
 )
 
-// WithPodinfoLabels returns an Option that directs that the slog.Handler to
-// include labels from the Kubernetes Downward API podinfo labels file.  The
-// labels file is expected to be found in the directory specified by root and
-// MUST be named "labels", per the Kubernetes Downward API for Pods.
+// WithPodinfoLabels returns an option that causes the handler to include
+// labels from the Kubernetes Downward API podinfo labels file.  The handler
+// expects the labels file in the directory that root specifies.  The file
+// must be named "labels", as the Kubernetes Downward API for Pods specifies.
 //
-// The labels are prefixed with "k8s-pod/" to adhere to the Google Cloud
-// Logging conventions for Kubernetes Pod labels.
+// The handler adds the prefix "k8s-pod/" to each label.  This follows the
+// Google Cloud Logging conventions for Kubernetes Pod labels.
 func WithPodinfoLabels(root string) options.OptionProcessor {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, podinfoAugmentor(root))
@@ -79,8 +79,8 @@ func podinfoAugmentor(root string) options.EntryAugmentor {
 	}
 }
 
-// podLabels returns the labels in props with the quotes removed from each
-// value and the PodPrefix added to each key.
+// podLabels returns the labels in props.  The function removes the quotes
+// from each value and adds PodPrefix to each key.
 func podLabels(props *properties.Properties) map[string]string {
 	labels := make(map[string]string, props.Len())
 

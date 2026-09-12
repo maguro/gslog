@@ -35,9 +35,9 @@ import (
 	"m4o.io/gslog/otel"
 )
 
-// A gslog.GcpHandler is created with a GCP logging.Logger.  The handler will
-// map slog.Record records to logging.Entry entries, subsequently passing the
-// resulting entries to its configured logging.Logger instance's Log() method.
+// The example creates a gslog.GcpHandler with a GCP logging.Logger.  The
+// handler maps each slog.Record to a logging.Entry.  The handler then passes
+// the entry to the Log() method of its logging.Logger.
 func ExampleNewGcpHandler() {
 	ctx := context.Background()
 	client, err := logging.NewClient(ctx, "my-project")
@@ -72,8 +72,8 @@ var (
 
 type Manager struct{}
 
-// Password is a specialised type whose fmt.Stringer, json.Marshaler, and
-// slog.LogValuer implementations return an obfuscated value.
+// Password is a type that implements fmt.Stringer, json.Marshaler, and
+// slog.LogValuer.  Each implementation returns an obfuscated value.
 type Password string
 
 func (p Password) String() string {
@@ -104,16 +104,16 @@ type User struct {
 // Payload field as a JSON string.
 func PrintJsonPayload(e logging.Entry) {
 	b, _ := protojson.Marshal(e.Payload.(*spb.Struct))
-	// another JSON round-trip because protojson randomizes output
+	// Do another JSON round-trip, because protojson randomizes its output.
 	var j map[string]interface{}
 	_ = json.Unmarshal(b, &j)
 	b, _ = json.Marshal(j)
 	fmt.Println(string(b))
 }
 
-// The gslog.GcpHandler maps the slog.Record and the handler's nested group
-// attributes into a JSON object, with the logged message keyed at the root
-// with the key "message".
+// The gslog.GcpHandler maps the slog.Record and the nested group attributes
+// of the handler into a JSON object.  The message is at the root of the
+// object with the key "message".
 func ExampleGcpHandler_Handle_payloadMapping() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload))
 	l := slog.New(h)
@@ -145,8 +145,8 @@ func PrintLabels(e logging.Entry) {
 	fmt.Println(sb.String())
 }
 
-// The gslog.GcpHandler will add any labels found in the context to the
-// logging.Entry's Labels field.
+// The gslog.GcpHandler adds the labels in the context to the Labels field of
+// the logging.Entry.
 func ExampleGcpHandler_Handle_withLabels() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintLabels))
 	l := slog.New(h)
@@ -159,12 +159,12 @@ func ExampleGcpHandler_Handle_withLabels() {
 	// Output: a=one, b=two
 }
 
-// When configured via k8s.WithPodinfoLabels(), gslog.GcpHandler will include
-// labels from the configured Kubernetes Downward API podinfo labels file to
-// the logging.Entry's Labels field.
+// With the k8s.WithPodinfoLabels() option, gslog.GcpHandler adds labels from
+// the configured Kubernetes Downward API podinfo labels file to the Labels
+// field of the logging.Entry.
 //
-// The labels are prefixed with "k8s-pod/" to adhere to the Google Cloud
-// Logging conventions for Kubernetes Pod labels.
+// The handler adds the prefix "k8s-pod/" to each label.  This follows the
+// Google Cloud Logging conventions for Kubernetes Pod labels.
 func ExampleNewGcpHandler_withK8sPodinfo() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintLabels), k8s.WithPodinfoLabels("k8s/testdata/etc/podinfo"))
 	l := slog.New(h)
@@ -177,12 +177,12 @@ func ExampleNewGcpHandler_withK8sPodinfo() {
 	// Output: a=one, b=two, k8s-pod/app=hello-world, k8s-pod/environment=stg, k8s-pod/tier=backend, k8s-pod/track=stable
 }
 
-// When configured via otel.WithOtelBaggage(), gslog.GcpHandler will include
-// any baggage.Baggage attached to the context as attributes.
+// With the otel.WithOtelBaggage() option, gslog.GcpHandler adds the
+// baggage.Baggage in the context as attributes.
 //
-// The baggage keys are prefixed with "otel-baggage/" to mitigate collision
-// with other log attributes and have precedence over any collisions with
-// preexisting attributes.
+// The handler adds the prefix "otel-baggage/" to each baggage key.  The
+// prefix makes collisions with other log attributes less likely.  A baggage
+// attribute has precedence over an attribute that already has the same key.
 func ExampleNewGcpHandler_withOpentelemetryBaggage() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
 	l := slog.New(h)
@@ -214,9 +214,9 @@ func PrintTracing(e logging.Entry) {
 	fmt.Println(sb.String())
 }
 
-// When configured via otel.WithOtelTracing(), gslog.GcpHandler will include
-// any OpenTelemetry trace.SpanContext information associated with the context
-// in the logging.Entry's tracing fields.
+// With the otel.WithOtelTracing() option, gslog.GcpHandler adds the
+// OpenTelemetry trace.SpanContext information in the context to the tracing
+// fields of the logging.Entry.
 func ExampleNewGcpHandler_withOpentelemetryTrace() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
 	l := slog.New(h)
@@ -243,22 +243,23 @@ func PrintSourceLocation(e logging.Entry) {
 	sl.File = sl.File[len(sl.File)-len("gslog/example_test.go"):]
 
 	b, _ := protojson.Marshal(sl)
-	// another JSON round-trip because protojson randomizes output
+	// Do another JSON round-trip, because protojson randomizes its output.
 	var j map[string]interface{}
 	_ = json.Unmarshal(b, &j)
 	b, _ = json.Marshal(j)
 	fmt.Println(string(b))
 }
 
-// When configured via gslog.WithSourceAdded(), gslog.GcpHandler will include
-// the computationally expensive SourceLocation field in the logging.Entry.
+// With the gslog.WithSourceAdded() option, gslog.GcpHandler adds the
+// SourceLocation field to the logging.Entry.  This field is expensive to
+// compute.
 func ExampleNewGcpHandler_withSourceAdded() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintSourceLocation), gslog.WithSourceAdded())
 	l := slog.New(h)
 
 	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gslog/example_test.go","function":"m4o.io/gslog_test.ExampleNewGcpHandler_withSourceAdded","line":"259"}
+	// Output: {"file":"gslog/example_test.go","function":"m4o.io/gslog_test.ExampleNewGcpHandler_withSourceAdded","line":"260"}
 }
 
 // RemovePassword is a gslog.AttrMapper that elides password attributes.
@@ -269,9 +270,9 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-// When configured via gslog.WithReplaceAttr(), gslog.GcpHandler will apply
-// the supplied gslog.AttrMapper to all non-group attributes before they
-// are logged.
+// With the gslog.WithReplaceAttr() option, gslog.GcpHandler applies the
+// supplied gslog.AttrMapper to each non-group attribute before the handler
+// logs the attribute.
 func ExampleNewGcpHandler_withReplaceAttr() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), gslog.WithReplaceAttr(RemovePassword))
 	l := slog.New(h)
@@ -283,8 +284,8 @@ func ExampleNewGcpHandler_withReplaceAttr() {
 	// Output: {"message":"How now brown cow?","pub":{"username":"user-12234"}}
 }
 
-// When configured via gslog.WithLogLeveler(), gslog.GcpHandler use the
-// slog.Leveler for logging level enabled checks.
+// With the gslog.WithLogLeveler() option, gslog.GcpHandler uses the
+// slog.Leveler to decide whether a log level is enabled.
 func ExampleNewGcpHandler_withLogLeveler() {
 	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), gslog.WithLogLeveler(slog.LevelError))
 	l := slog.New(h)
@@ -295,8 +296,8 @@ func ExampleNewGcpHandler_withLogLeveler() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// When configured via gslog.WithLogLevelFromEnvVar(), gslog.GcpHandler obtains
-// its log level from tne environmental variable specified by the key.
+// With the gslog.WithLogLevelFromEnvVar() option, gslog.GcpHandler reads its
+// log level from the environment variable that the key names.
 func ExampleNewGcpHandler_withLogLevelFromEnvVar() {
 	const envVar = "FOO_LOG_LEVEL"
 	_ = os.Setenv(envVar, "ERROR")
@@ -313,7 +314,7 @@ func ExampleNewGcpHandler_withLogLevelFromEnvVar() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// A default log level configured via gslog.WithDefaultLogLeveler().
+// The gslog.WithDefaultLogLeveler() option sets a default log level.
 func ExampleNewGcpHandler_withDefaultLogLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 

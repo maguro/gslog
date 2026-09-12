@@ -12,32 +12,31 @@ for [slog](https://go.dev/blog/slog).
 ---
 
 This Google Cloud Logging (GCL) [slog.Handler](https://pkg.go.dev/log/slog#Handler)
-implementation directly fills the GCL entry, `logging.Entry`, with information
-obtained in the `context.Context`, `slog.Record`, and implied context within
-the Handler itself. The `logging.Entry.Payload` is filled with a
+implementation fills the GCL entry, `logging.Entry`, directly. The handler gets
+the information from the `context.Context`, the `slog.Record`, and the state of
+the handler itself. The handler sets `logging.Entry.Payload` to a
 [Protobuf `structpb.Struct`](https://pkg.go.dev/google.golang.org/protobuf/types/known/structpb#Struct)
-instance, resulting in a `jsonPayload` with the log message having the key
-"message". Log records are [sent asynchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.Log).
-Critical level, or higher, log records will
-be [sent synchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.LogSync).
+instance. The result is a `jsonPayload` in which the log message has the key
+"message". The handler [sends log records asynchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.Log).
+The handler [sends log records at Critical level or higher synchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.LogSync).
 
-The GCL Handler's options include a number of ways to include information from
-"outside" frameworks:
+The options of the GCL handler include several ways to include information
+from other frameworks:
 
-- Labels attached to the context, via `gslog.WithLabels(ctx, ...labels)`, which
-  are added to the GCL entry, `logging.Entry`, `Labels` field.  The number of
-  labels is limited to 64.
-- [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) attached to the context which are
-  added as attributes,
-  `slog.Attr`, to the logging record, `slog.Record`. The baggage keys are prefixed
-  with "otel-baggage/" to mitigate collision with other log attributes.
-- [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/) attached to the context which are
-  added directly to
-  the GCL entry, `logging.Entry`, tracing fields.
+- Labels in the context, set with `gslog.WithLabels(ctx, ...labels)`. The
+  handler adds them to the `Labels` field of the GCL entry, `logging.Entry`.
+  The maximum number of labels is 64.
+- [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) in the context. The handler adds
+  the baggage as attributes, `slog.Attr`, to the logging record, `slog.Record`.
+  The handler adds the prefix "otel-baggage/" to each baggage key. The prefix
+  makes collisions with other log attributes less likely.
+- [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/) in the context. The handler adds
+  the tracing information directly to the tracing fields of the GCL entry,
+  `logging.Entry`.
 - Labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/)
-  podinfo `labels` file, which are added to the GCL entry, `logging.Entry`,
-  `Labels` field. The labels are prefixed with "k8s-pod/" to adhere to the
-  GCL conventions for Kubernetes Pod labels.
+  podinfo `labels` file. The handler adds them to the `Labels` field of the GCL
+  entry, `logging.Entry`. The handler adds the prefix "k8s-pod/" to each label.
+  This follows the GCL conventions for Kubernetes Pod labels.
 
 ## Install
 
@@ -49,8 +48,8 @@ go get m4o.io/gslog
 
 ## Example Usage
 
-First create a [Google Cloud Logging](https://pkg.go.dev/cloud.google.com/go/logging)
-`logging.Client` to use throughout your application:
+First, create a [Google Cloud Logging](https://pkg.go.dev/cloud.google.com/go/logging)
+`logging.Client`. Use this client throughout your application:
 
 ```go
 ctx := context.Background()
@@ -60,10 +59,10 @@ if err != nil {
 }
 ```
 
-Usually, you'll want to add log entries to a buffer to be periodically flushed
-(automatically and asynchronously) to the Cloud Logging service. Use the
-logger when creating the new `gslog.GcpHandler` which is passed to `slog.New()`
-to obtain a `slog`-based logger.
+Usually, you want to add log entries to a buffer. The buffer is flushed to the
+Cloud Logging service periodically, automatically, and asynchronously. Create a
+`gslog.GcpHandler` with the logger. Pass the handler to `slog.New()` to get a
+`slog` logger.
 
 ```go
 loggger := client.Logger("my-log")
@@ -74,13 +73,14 @@ l := slog.New(h)
 l.Info("How now brown cow?")
 ```
 
-Writing critical, or higher, log level entries will be sent synchronously.
+The handler sends entries at Critical level or higher synchronously.
 
 ```go
 l.Log(context.Background(), gslog.LevelCritical, "Danger, Will Robinson!")
 ```
 
-Close your client before your program exits, to flush any buffered log entries.
+Close the client before the program exits. This flushes the buffered log
+entries.
 
 ```go
 err = client.Close()
@@ -91,25 +91,23 @@ if err != nil {
 
 ## Logger Configuration Options
 
-Creating a Google Cloud Logging [Handler](https://pkg.go.dev/log/slog#Handler)
-using `gslog.NewGcpHandler(logger, ...options)` accepts the
-following options:
+`gslog.NewGcpHandler(logger, ...options)` creates a Google Cloud Logging
+[Handler](https://pkg.go.dev/log/slog#Handler). It accepts these options:
 
-| Configuration option                   |   Arguments    | Description                                                                                                                                                                                                                                                                                                                    |
-|----------------------------------------|:--------------:|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `gslog.WithLogLeveler(leveler)`        | `slog.Leveler` | Specifies the `slog.Leveler` for logging. Explicitly setting the log level here takes precedence over the other options.                                                                                                                                                                                                       |
-| `gslog.WithLogLevelFromEnvVar(envVar)` |    `string`    | Specifies the log level for logging comes from tne environmental variable specified by the key.                                                                                                                                                                                                                                |
-| `gslog.WithDefaultLogLeveler()`        | `slog.Leveler` | Specifies the default `slog.Leveler` for logging.                                                                                                                                                                                                                                                                              |
-| `gslog.WithSourceAdded()`              |                | Causes the handler to compute the source code position of the log statement and add a `slog.SourceKey` attribute to the output.                                                                                                                                                                                                |
-| `gslog.WithLabels()`                   |                | Adds any labels found in the context to the `logging.Entry`'s `Labels` field.                                                                                                                                                                                                                                                  |
-| `gslog.WithReplaceAttr(mapper)`        | `gslog.Mapper` | Specifies an attribute mapper used to rewrite each non-group attribute before it is logged.                                                                                                                                                                                                                                    |
-| `otel.WithOtelBaggage()`               |                | Directs that the `slog.Handler` to include [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/).  The `baggage.Baggage` is obtained from the context, if available, and added as attributes.                                                                                                       |
-| `otel.WithOtelTracing()`               |                | Directs that the `slog.Handler` to include [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/).  Tracing information is obtained from the `trace.SpanContext` stored in the context, if provided.                                                                                                  |
-| `k8s.WithPodinfoLabels(root)`          |    `string`    | Directs that the `slog.Handler` to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The labels file is expected to be found in the directory specified by root and MUST be named "labels", per the Kubernetes Downward API for Pods. |
+| Configuration option                   |     Arguments      | Description                                                                                                                                                                                                                                                                                                                    |
+|----------------------------------------|:------------------:|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `gslog.WithLogLeveler(leveler)`        |   `slog.Leveler`   | Specifies the `slog.Leveler` for logging. This option has precedence over the other log level options.                                                                                                                                                                                                                         |
+| `gslog.WithLogLevelFromEnvVar(envVar)` |      `string`      | Reads the log level from the environment variable that the key names.                                                                                                                                                                                                                                                          |
+| `gslog.WithDefaultLogLeveler()`        |   `slog.Leveler`   | Specifies the default `slog.Leveler` for logging.                                                                                                                                                                                                                                                                              |
+| `gslog.WithSourceAdded()`              |                    | Causes the handler to compute the source code position of the log statement. The handler sets the position in the `SourceLocation` field of the `logging.Entry`.                                                                                                                                                               |
+| `gslog.WithReplaceAttr(mapper)`        | `gslog.AttrMapper` | Specifies an attribute mapper. The handler calls the mapper to rewrite each non-group attribute before the handler logs the attribute.                                                                                                                                                                                         |
+| `otel.WithOtelBaggage()`               |                    | Causes the handler to include [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/). The handler gets the `baggage.Baggage` from the context, if the context has one, and adds the baggage as attributes.                                                                                           |
+| `otel.WithOtelTracing()`               |                    | Causes the handler to include [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/). The handler gets the tracing information from the `trace.SpanContext` in the context, if the context has one.                                                                                                   |
+| `k8s.WithPodinfoLabels(root)`          |      `string`      | Causes the handler to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The handler expects the labels file in the directory that root specifies. The file must be named "labels", as the Kubernetes Downward API for Pods specifies. |
 
 ## Design Notes
 
-There's a number of different ways to map the `slog.Record` to a GCL entry,
+There are several ways to map the `slog.Record` to a GCL entry,
 `logging.Entry`.
 
 - a JSON string
@@ -120,19 +118,20 @@ The pros and cons are
 
 | Payload type                                 | pros                                              | cons                                                    |
 |----------------------------------------------|---------------------------------------------------|---------------------------------------------------------|
-| JSON string                                  | fast and efficient to generate on the `slog` side | logged as a flat unstructured `textPayload` in GCL      |
-| value that can be marshaled to a JSON object | logged as a structured `jsonPayload` in GCL       | the marshalling effort is complicated and not amortized |
+| JSON string                                  | fast and efficient to generate on the `slog` side | GCL logs it as a flat, unstructured `textPayload`       |
+| value that can be marshaled to a JSON object | GCL logs it as a structured `jsonPayload`         | the marshalling effort is complicated and not amortized |
 | Protobuf `*anypb.Any`                        | not known at the moment                           | not known at the moment                                 |
 
-Even though a JSON string can be marshaled to a JSON object, the GCL client 
-merely looks at its Go type and decides to treat it as a flat text message.
+A JSON string can be marshaled to a JSON object. But the GCL client only
+examines the Go type of the value and treats the string as a flat text message.
 
-If not a string, values that can be marshaled to a JSON object are actually
-first marshalled into a JSON object, i.e. `map[string]interface{}`, and then 
-that resulting JSON object is translated into an equivalent `structpb.Struct`
-Protobuf message.  The GCL logger will redo this marshalling and translating
-for every message logged.
+For a value that is not a string and that can be marshaled to a JSON object,
+the GCL logger first marshals the value to a JSON object,
+`map[string]interface{}`. The GCL logger then translates that JSON object to
+an equivalent `structpb.Struct` Protobuf message. The GCL logger does this
+marshalling and translation again for every message that it logs.
 
-The reason why the `logging.Entry` `Payload` field is set with a Protobuf
-`structpb.Struct` when the end result is a `jsonPayload` GCL logging entry is
-because that's what `Logger.Log(e)` does anyway, behind the scenes. When either
+The handler sets the `Payload` field of `logging.Entry` to a Protobuf
+`structpb.Struct`, although the end result is a `jsonPayload` GCL logging
+entry. The handler does this because `Logger.Log(e)` does the same conversion
+internally.

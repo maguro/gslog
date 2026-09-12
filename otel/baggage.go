@@ -27,27 +27,28 @@ import (
 
 // noinspection GoNameStartsWithPackageName.
 const (
-	// OtelBaggageKey is the prefix for keys obtained from the OpenTelemetry
-	// Baggage to mitigate collision with other log attributes.
+	// OtelBaggageKey is the prefix for keys that come from the OpenTelemetry
+	// Baggage.  The prefix makes collisions with other log attributes less
+	// likely.
 	OtelBaggageKey = "otel-baggage/"
 )
 
-// WithOtelBaggage returns a gslog option that directs that the slog.Handler
-// to include OpenTelemetry baggage.  The baggage.Baggage is obtained from the
-// context, if available, and added as attributes.
+// WithOtelBaggage returns a gslog option that causes the handler to include
+// OpenTelemetry baggage.  The handler gets the baggage.Baggage from the
+// context, if the context has one, and adds the baggage as attributes.
 //
-// The baggage keys are prefixed with "otel-baggage/" to mitigate collision
-// with other log attributes.  Baggage that have no properties are mapped to
-// a slog.Attr for a string value.  Baggage that have properties mapped to a
-// slog.Group with two keys, "value" which is the value of the baggage, and
-// "properties" which is the properties of the baggage as a slog.Group.
-// Baggage properties that have no value are mapped to slog.Any with a nil
-// value.
+// The handler adds the prefix "otel-baggage/" to each baggage key.  The
+// prefix makes collisions with other log attributes less likely.  The
+// handler maps a member that has no properties to a slog.Attr with a string
+// value.  The handler maps a member that has properties to a slog.Group with
+// two keys.  The key "value" holds the value of the member.  The key
+// "properties" holds the properties of the member as a slog.Group.  The
+// handler maps a property that has no value to slog.Any with a nil value.
 //
-// Baggage mapped attributes take precedence over any preexisting attributes
-// that a handler or logging record may already have.
+// The handler or the logging record can already have an attribute with the
+// same key as a baggage attribute.  The baggage attribute has precedence.
 //
-// For example, "a=one,b=two;p1;p2=val2" would map to
+// For example, "a=one,b=two;p1;p2=val2" maps to
 //
 //	slog.String("otel-baggage/a", "one")
 //	slog.Group("otel-baggage/b",
@@ -63,8 +64,8 @@ func WithOtelBaggage() options.OptionProcessor {
 	}
 }
 
-// MustParse wraps baggage.Parse to alleviate needless error checking
-// when it's known, a priori, that an error can never happen.
+// MustParse wraps baggage.Parse.  Use MustParse when an error cannot occur,
+// so that the caller does not need to check for an error.
 func MustParse(bStr string) baggage.Baggage {
 	bag, err := baggage.Parse(bStr)
 	if err != nil {

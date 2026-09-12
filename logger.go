@@ -20,42 +20,42 @@ import (
 	"cloud.google.com/go/logging"
 )
 
-// Logger is wraps the set of methods that are used when interacting with a
-// logging.Logger.  This interface facilitates stubbing out calls to the Logger
-// for the purposes of testing and benchmarking.
+// Logger wraps the methods that the handler calls on a logging.Logger.  Tests
+// and benchmarks can implement this interface to stub the Logger.
 type Logger interface {
 	Log
 	LogSync
 
-	// Flush blocks until all currently buffered log entries are sent.
+	// Flush blocks until all log entries that are currently buffered are sent.
 	//
-	// If any errors occurred since the last call to Flush from any Logger, or the
-	// creation of the client if this is the first call, then Flush returns a non-nil
-	// error with summary information about the errors. This information is unlikely to
-	// be actionable. For more accurate error reporting, set Client.OnError.
+	// Flush returns a non-nil error if errors occurred since the last call to
+	// Flush from any Logger.  If this is the first call, the errors count from
+	// the creation of the client.  The error contains summary information about
+	// the errors.  This information is unlikely to be actionable.  For more
+	// accurate error reports, set Client.OnError.
 	Flush() error
 }
 
 // Log wraps the asynchronous buffered logging of records to
 // Google Cloud Logging.
 type Log interface {
-	// Log buffers the Entry for output to the logging service. It never blocks.
+	// Log buffers the Entry for output to the logging service.  Log never
+	// blocks.
 	Log(e logging.Entry)
 }
 
 // LogSync wraps the synchronous logging of records to
 // Google Cloud Logging.
 type LogSync interface {
-	// LogSync logs the Entry synchronously without any buffering. Because LogSync is slow
-	// and will block, it is intended primarily for debugging or critical errors.
-	// Prefer Log for most uses.
+	// LogSync logs the Entry synchronously with no buffer.  LogSync is slow
+	// and blocks.  Because of this, use LogSync primarily for debugging or
+	// critical errors.  Prefer Log for most uses.
 	LogSync(ctx context.Context, e logging.Entry) error
 }
 
-// The LoggerFunc type is an adapter to allow the use of
-// ordinary functions as a Logger. If fn is a function
-// with the appropriate signature, LoggerFunc(fn) is a
-// Logger that calls fn.
+// LoggerFunc is an adapter that lets an ordinary function operate as a
+// Logger.  If fn is a function with the correct signature, LoggerFunc(fn) is
+// a Logger that calls fn.
 type LoggerFunc func(e logging.Entry)
 
 // Log implements Log.Log.

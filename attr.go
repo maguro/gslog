@@ -18,27 +18,29 @@ import (
 	"m4o.io/gslog/internal/attr"
 )
 
-// AttrMapper is called to rewrite each non-group attribute before it is logged.
-// The attribute's value has been resolved (see [Value.Resolve]).
-// If replaceAttr returns a zero Attr, the attribute is discarded.
+// The handler calls an AttrMapper to rewrite each non-group attribute before
+// the handler logs the attribute.  The handler resolves the value of the
+// attribute before the call (see [Value.Resolve]).  If the AttrMapper returns
+// a zero Attr, the handler discards the attribute.
 //
-// The built-in attribute with key "message" is passed to this function.
+// The handler passes the built-in attribute with key "message" to this
+// function.
 //
-// The first argument is a list of currently open groups that contain the
-// Attr. It must not be retained or modified. replaceAttr is never called
-// for Group attributes, only their contents. For example, the attribute
-// list
+// The first argument is a list of the open groups that contain the Attr.  Do
+// not retain or modify this list.  The handler never calls the AttrMapper for
+// a Group attribute.  The handler calls the AttrMapper for the contents of
+// the group.  For example, the attribute list
 //
 //	Int("a", 1), Group("g", Int("b", 2)), Int("c", 3)
 //
-// results in consecutive calls to replaceAttr with the following arguments:
+// results in consecutive calls to the AttrMapper with these arguments:
 //
 //	nil, Int("a", 1)
 //	[]string{"g"}, Int("b", 2)
 //	nil, Int("c", 3)
 //
-// AttrMapper can be used to change the default keys of the built-in
-// attributes, convert types (for example, to replace a `time.Time` with the
-// integer seconds since the Unix epoch), sanitize personal information, or
-// remove attributes from the output.
+// An AttrMapper can change the default keys of the built-in attributes,
+// convert types (for example, replace a `time.Time` with the integer seconds
+// since the Unix epoch), sanitize personal information, or remove attributes
+// from the output.
 type AttrMapper attr.Mapper

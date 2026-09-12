@@ -66,7 +66,8 @@ func (u *Chimera) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`{"name":%q}`, u.Name)), nil
 }
 
-// Error should never be called since
+// Chimera implements json.Marshaler.  Because of this, NewAny must not call
+// Error.
 func (u *Chimera) Error() string {
 	panic("ouch")
 }

@@ -33,8 +33,8 @@ type LabelPair struct {
 	val    string
 }
 
-// IsIgnored indicates if there's something wrong with the label pair and that it
-// will not be passed in the logging record.
+// IsIgnored reports whether there is a problem with the label pair.  The
+// handler does not add an ignored label pair to the logging record.
 func (lp LabelPair) IsIgnored() bool {
 	return lp.ignore
 }

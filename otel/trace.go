@@ -23,9 +23,9 @@ import (
 	"m4o.io/gslog/internal/options"
 )
 
-// WithOtelTracing returns an option that directs that the slog.Handler to
-// include OpenTelemetry tracing.  Tracing information is obtained from the
-// trace.SpanContext stored in the context, if provided.
+// WithOtelTracing returns an option that causes the handler to include
+// OpenTelemetry tracing.  The handler gets the tracing information from the
+// trace.SpanContext in the context, if the context has one.
 func WithOtelTracing(projectID string) options.OptionProcessor {
 	tracePrefix := "projects/" + projectID + "/traces/"
 

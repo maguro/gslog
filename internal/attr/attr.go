@@ -32,11 +32,12 @@ import (
 //nolint:gochecknoglobals
 var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NULL_VALUE}}
 
-// Mapper functions are called to rewrite each non-group attribute before it is logged.
+// The handler calls a Mapper to rewrite each non-group attribute before the
+// handler logs the attribute.
 type Mapper func(groups []string, attr slog.Attr) slog.Attr
 
-// WrapAttrMapper will wrap an mapper with empty group checks to ensure they
-// are properly elided.
+// WrapAttrMapper wraps a mapper with checks for empty groups.  The wrapper
+// elides an empty group.
 func WrapAttrMapper(mapper Mapper) Mapper {
 	if mapper == nil {
 		return nil
@@ -73,17 +74,18 @@ func WrapAttrMapper(mapper Mapper) Mapper {
 	return wrapped
 }
 
-// DecorateWith will add the attribute to the spb.Struct's Fields.  If the
-// attribute cannot be mapped to a spb.Value, nothing is done. Attributes
-// of type slog.AnyAttribute are mapped using the following precedence.
+// DecorateWith adds the attribute to the Fields of the spb.Struct.  If
+// DecorateWith cannot map the attribute to a spb.Value, DecorateWith does
+// nothing.  DecorateWith maps an attribute of kind slog.KindAny with this
+// precedence:
 //
-//   - If of type builtin.error and does not implement json.Marshaler, the
-//     Error() string is used.
-//   - If attribute can be simply mappable to a spb.Value, that value is
-//     used.
-//   - If the attribute can be converted into a JSON object, that JSON object is
-//     translated to its corresponding spb.Struct.
-//   - Nothing is done.
+//   - If the value is a builtin.error and does not implement json.Marshaler,
+//     DecorateWith uses the Error() string.
+//   - If the value maps directly to a spb.Value, DecorateWith uses that
+//     value.
+//   - If DecorateWith can convert the value to a JSON object, DecorateWith
+//     translates that JSON object to a spb.Struct.
+//   - DecorateWith does nothing.
 func DecorateWith(payload *spb.Struct, attr slog.Attr) {
 	rv := attr.Value.Resolve()
 	if attr.Key == "" && rv.Any() == nil {
@@ -168,18 +170,19 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 
 // NewAny creates the spb.Value equivalent of the supplied any instance.
 func NewAny(a any) (*spb.Value, bool) {
-	// if value is an error, but not a JSON marshaller, return error
+	// If the value is an error but not a json.Marshaler, return the error
+	// text.
 	_, jm := a.(json.Marshaler)
 	if err, ok := a.(error); ok && !jm {
 		return &spb.Value{Kind: &spb.Value_StringValue{StringValue: err.Error()}}, true
 	}
 
-	// value may be simply mappable to a spb.Value.
+	// The value can map directly to a spb.Value.
 	if nv, err := spb.NewValue(a); err == nil {
 		return nv, true
 	}
 
-	// try converting to a JSON object
+	// Try to convert the value to a JSON object.
 	return AsJSON(a)
 }
 
@@ -188,11 +191,9 @@ func NewTimeValue(t time.Time) *spb.Value {
 	return &spb.Value{Kind: &spb.Value_StringValue{StringValue: TimeToRFC3339InMs(t)}}
 }
 
-// AsJSON attempts to convert the attribute a to a corresponding spb.Value
-// by first converted to a JSON object and then mapping that JSON object to a
-// corresponding spb.Value.  The function also returns true for ok if the
-// attribute can be first converted to JSON before being mapped, and false
-// otherwise.
+// AsJSON tries to convert the attribute a to a JSON object.  AsJSON then
+// maps that JSON object to a spb.Value.  AsJSON returns true for ok if the
+// conversion to JSON succeeds, and false if it does not.
 func AsJSON(a any) (*spb.Value, bool) {
 	if a == nil {
 		return nilValue, true
@@ -208,8 +209,8 @@ func AsJSON(a any) (*spb.Value, bool) {
 	return value, true
 }
 
-// ToJSON converts an instance of any to a JSON object map[string]interface{}.
-// An error is returned if the instance cannot be encoded into JSON.
+// ToJSON converts an instance of any to a JSON object, map[string]interface{}.
+// ToJSON returns an error if it cannot encode the instance as JSON.
 func ToJSON(a any) (any, error) {
 	var buf bytes.Buffer
 
@@ -235,8 +236,8 @@ var timePool = sync.Pool{
 	},
 }
 
-// TimeToRFC3339InMs formats an instance of time.Time to an RFC3339 defined
-// layout in milliseconds in a performant manner.
+// TimeToRFC3339InMs formats an instance of time.Time in the RFC3339 layout
+// with millisecond resolution.  The function is optimized for speed.
 func TimeToRFC3339InMs(t time.Time) string {
 	//nolint:forcetypeassert
 	ptr := timePool.Get().(*[]byte)
@@ -249,12 +250,13 @@ func TimeToRFC3339InMs(t time.Time) string {
 		timePool.Put(ptr)
 	}()
 
-	// Format according to time.RFC3339Nano since it is highly optimized,
-	// but truncate it to use millisecond resolution.
+	// Format with time.RFC3339Nano because that format is highly optimized.
+	// Truncate the result to millisecond resolution.
 	const prefixLen = len("2006-01-02T15:04:05.000")
 
-	// Unfortunately, that format trims trailing 0s, so add 1/10 millisecond
-	// to guarantee that there are exactly 4 digits after the period.
+	// That format trims trailing zeros.  Because of this, add 1/10
+	// millisecond to make sure that there are exactly 4 digits after the
+	// period.
 	const rounding = time.Millisecond / 10
 
 	n := len(buf)

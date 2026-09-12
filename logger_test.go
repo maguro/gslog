@@ -36,8 +36,8 @@ func (d discard) Flush() error {
 	return nil
 }
 
-// Discard can be used as a do-nothing Logger that can be used for testing and
-// to stub out Google Cloud Logging when benchmarking.
+// Discard is a Logger that does nothing.  Tests and benchmarks can use
+// Discard as a stub for Google Cloud Logging.
 var Discard gslog.Logger = discard{}
 
 func TestLoggerFunc_Log(t *testing.T) {

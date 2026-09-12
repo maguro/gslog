@@ -13,10 +13,10 @@
 // limitations under the License.
 
 /*
-Package otel contains options for including OpenTelemetry baggage and tracing in
-logging records.
+Package otel contains options that include OpenTelemetry baggage and tracing
+in logging records.
 
-Placing the options in a separate package minimizes the dependencies pulled in
-by those who do not need OpenTelemetry tracing.
+The options are in a separate package.  Because of this, a module that does
+not need OpenTelemetry tracing has fewer dependencies.
 */
 package otel
