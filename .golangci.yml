@@ -3,6 +3,7 @@ linters:
   default: none
   enable:
     - bodyclose
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
@@ -35,7 +36,6 @@ linters:
 
   # don't enable:
   # - asciicheck
-  # - copyloopvar   # needs go >= 1.22; go.mod declares 1.21
   # - gochecknoglobals
   # - gocognit
   # - godot
