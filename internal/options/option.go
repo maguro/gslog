@@ -33,6 +33,9 @@ const (
 
 // EntryAugmentor augments an instance of logging.Entry.  The current context
 // and group path is provided, in case they are needed by the augmentor.
+//
+// The entry payload shares values with the handler.  Add new fields to the
+// payload.  Do not modify a value that is already in the payload.
 type EntryAugmentor func(ctx context.Context, e *logging.Entry, groups []string)
 
 // Options holds information needed to construct an instance of GcpHandler.

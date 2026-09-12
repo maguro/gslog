@@ -107,35 +107,18 @@ func (h *GcpHandler) Enabled(_ context.Context, level slog.Level) bool {
 // documentation.  It will translate the slog.Record into a logging.Entry
 // that's filled with a *spb.Value as an Entry Payload.
 func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
-	//nolint:forcetypeassert
-	payload2 := proto.Clone(h.payload).(*spb.Struct)
-
-	if payload2.Fields == nil {
-		payload2.Fields = make(map[string]*spb.Value)
-	}
-
-	setAndClean(h.groups, payload2, func(_ []string, payload *spb.Struct) {
-		record.Attrs(func(a slog.Attr) bool {
-			if h.replaceAttr != nil {
-				a = h.replaceAttr(h.groups, a)
-			}
-
-			attr.DecorateWith(payload, a)
-
-			return true
-		})
-	})
+	payload := h.decorate(h.payload, h.groups, &record)
 
 	a := slog.String(MessageKey, record.Message)
 	if h.replaceAttr != nil {
 		a = h.replaceAttr(nil, a)
 	}
 
-	attr.DecorateWith(payload2, a)
+	attr.DecorateWith(payload, a)
 
 	var entry logging.Entry
 
-	entry.Payload = payload2
+	entry.Payload = payload
 	entry.Timestamp = record.Time.UTC()
 	entry.Severity = level.ToSeverity(record.Level)
 
@@ -222,6 +205,42 @@ func (h *GcpHandler) Flush() error {
 	return nil
 }
 
+// decorate returns a copy of src with the attributes of record added to the
+// group at the end of groups.  The copy shares all values of src that are
+// not on the group path.  A group that is empty after the attributes are
+// added is removed from the copy.
+func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Record) *spb.Struct {
+	dst := &spb.Struct{Fields: cloneFields(src)}
+
+	if len(groups) == 0 {
+		record.Attrs(func(a slog.Attr) bool {
+			if h.replaceAttr != nil {
+				a = h.replaceAttr(h.groups, a)
+			}
+
+			attr.DecorateWith(dst, a)
+
+			return true
+		})
+
+		return dst
+	}
+
+	name := groups[0]
+	group := src.GetFields()[name].GetStructValue()
+	child := h.decorate(group, groups[1:], record)
+
+	if len(child.Fields) == 0 {
+		delete(dst.Fields, name)
+
+		return dst
+	}
+
+	dst.Fields[name] = &spb.Value{Kind: &spb.Value_StructValue{StructValue: child}}
+
+	return dst
+}
+
 func (h *GcpHandler) clone() *GcpHandler {
 	//nolint:forcetypeassert
 	payload2 := proto.Clone(h.payload).(*spb.Struct)
@@ -262,23 +281,15 @@ func fromPath(payload *spb.Struct, path []string) *spb.Struct {
 	return payload
 }
 
-func setAndClean(groups []string, payload *spb.Struct, decorate func(groups []string, payload *spb.Struct)) {
-	if len(groups) == 0 {
-		if payload.Fields == nil {
-			payload.Fields = make(map[string]*spb.Value)
-		}
+// cloneFields returns a new map with the same keys and values as the fields
+// of s.
+func cloneFields(s *spb.Struct) map[string]*spb.Value {
+	fields := s.GetFields()
+	dst := make(map[string]*spb.Value, len(fields))
 
-		decorate(groups, payload)
-
-		return
+	for k, v := range fields {
+		dst[k] = v
 	}
 
-	group := groups[0]
-
-	s := payload.GetFields()[group].GetStructValue()
-	setAndClean(groups[1:], s, decorate)
-
-	if len(s.GetFields()) == 0 {
-		delete(payload.GetFields(), group)
-	}
+	return dst
 }
