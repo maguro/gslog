@@ -301,7 +301,7 @@ func TestWriteTimeRFC3339(t *testing.T) {
 		time.Date(2000, 11, 12, 3, 4, 500, 5e7, time.UTC),
 	} {
 		got := attr.TimeToRFC3339InMs(tm)
-		want := `"` + tm.Format(rfc3339Millis) + `"`
+		want := tm.Format(rfc3339Millis)
 		if got != want {
 			t.Errorf("got %s, want %s", got, want)
 		}

@@ -249,8 +249,6 @@ func TimeToRFC3339InMs(t time.Time) string {
 		timePool.Put(ptr)
 	}()
 
-	buf = append(buf, byte('"'))
-
 	// Format according to time.RFC3339Nano since it is highly optimized,
 	// but truncate it to use millisecond resolution.
 	const prefixLen = len("2006-01-02T15:04:05.000")
@@ -265,7 +263,6 @@ func TimeToRFC3339InMs(t time.Time) string {
 
 	buf = t.AppendFormat(buf, time.RFC3339Nano)
 	buf = append(buf[:n+prefixLen], buf[n+prefixLen+1:]...) // drop the 4th digit
-	buf = append(buf, byte('"'))
 
 	return string(buf)
 }
