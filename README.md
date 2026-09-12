@@ -2,7 +2,7 @@
 
 ![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-%23007d9c)
 [![Documentation](https://godoc.org/github.com/maguro/gslog?status.svg)](http://godoc.org/github.com/maguro/gslog)
-[![Go Report Card](https://goreportcard.com/badge/github.com/maguro/gslog)](https://goreportcard.com/report/github.com/maguro/gslog)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maguro/gslog/badge)](https://scorecard.dev/viewer/?uri=github.com/maguro/gslog)
 [![codecov](https://codecov.io/gh/maguro/gslog/graph/badge.svg?token=3FAJJ2SIZB)](https://codecov.io/gh/maguro/gslog)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
 
