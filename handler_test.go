@@ -1116,6 +1116,37 @@ func TestWithLeveler(t *testing.T) {
 	assert.NotNil(t, got.LogEntry.Payload)
 }
 
+// TestWithGroupSiblingsDoNotAlias exercises a slice aliasing bug in
+// WithGroup.  After three nested WithGroup calls the groups slice has
+// len 3, cap 4.  Deriving two sibling handlers from that parent appends
+// into the same spare slot, so the second sibling overwrites the first
+// sibling's group name while the first sibling's payload still holds the
+// original group.  Logging through the first sibling then walks a path
+// that does not exist in its payload.
+func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
+	got := &Got{}
+	parent := gslog.NewGcpHandler(got).WithGroup("a").WithGroup("b").WithGroup("c")
+
+	first := parent.WithGroup("d")
+	second := parent.WithGroup("e")
+
+	slog.New(first).Info("first", "k", "v")
+	firstPayload := got.LogEntry.Payload.(*structpb.Struct)
+
+	slog.New(second).Info("second", "k", "v")
+	secondPayload := got.LogEntry.Payload.(*structpb.Struct)
+
+	assert.NotNil(t, firstPayload.GetFields()["a"].GetStructValue().
+		GetFields()["b"].GetStructValue().
+		GetFields()["c"].GetStructValue().
+		GetFields()["d"], "first sibling should log under a.b.c.d")
+
+	assert.NotNil(t, secondPayload.GetFields()["a"].GetStructValue().
+		GetFields()["b"].GetStructValue().
+		GetFields()["c"].GetStructValue().
+		GetFields()["e"], "second sibling should log under a.b.c.e")
+}
+
 func TestLevelCritical(t *testing.T) {
 	got := &Got{}
 	h := gslog.NewGcpHandler(got, gslog.WithLogLeveler(slog.LevelInfo))

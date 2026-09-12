@@ -203,7 +203,6 @@ func (h *GcpHandler) WithGroup(name string) slog.Handler {
 		},
 	}
 
-	handler2.groups = h.groups
 	handler2.groups = append(handler2.groups, name)
 
 	return handler2
