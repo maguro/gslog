@@ -171,11 +171,6 @@ func (h *GcpHandler) WithGroup(name string) slog.Handler {
 
 	handler2 := h.clone()
 
-	//nolint:forcetypeassert
-	payload2 := proto.Clone(h.payload).(*spb.Struct)
-
-	handler2.payload = payload2
-
 	current := fromPath(handler2.payload, handler2.groups)
 
 	current.Fields[name] = &spb.Value{
