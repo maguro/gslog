@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -226,30 +225,9 @@ func ToJSON(a any) (any, error) {
 	return result, nil
 }
 
-//nolint:gochecknoglobals
-var timePool = sync.Pool{
-	New: func() any {
-		const prefixLen = len(time.RFC3339Nano) + 1
-		b := make([]byte, 0, prefixLen)
-
-		return &b
-	},
-}
-
 // TimeToRFC3339InMs formats an instance of time.Time in the RFC3339 layout
 // with millisecond resolution.  The function is optimized for speed.
 func TimeToRFC3339InMs(t time.Time) string {
-	//nolint:forcetypeassert
-	ptr := timePool.Get().(*[]byte)
-
-	buf := *ptr
-
-	buf = buf[0:0]
-	defer func() {
-		*ptr = buf
-		timePool.Put(ptr)
-	}()
-
 	// Format with time.RFC3339Nano because that format is highly optimized.
 	// Truncate the result to millisecond resolution.
 	const prefixLen = len("2006-01-02T15:04:05.000")
@@ -259,12 +237,12 @@ func TimeToRFC3339InMs(t time.Time) string {
 	// period.
 	const rounding = time.Millisecond / 10
 
-	n := len(buf)
+	var arr [len(time.RFC3339Nano)]byte
 
 	t = t.Truncate(time.Millisecond).Add(rounding)
 
-	buf = t.AppendFormat(buf, time.RFC3339Nano)
-	buf = append(buf[:n+prefixLen], buf[n+prefixLen+1:]...) // drop the 4th digit
+	buf := t.AppendFormat(arr[:0], time.RFC3339Nano)
+	buf = append(buf[:prefixLen], buf[prefixLen+1:]...) // drop the 4th digit
 
 	return string(buf)
 }
