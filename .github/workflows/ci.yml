@@ -1,11 +1,40 @@
 name: Workflow for CI
 on: [ push, pull_request ]
+
+# GOTOOLCHAIN=local stops Go from downloading a toolchain newer than the one
+# setup-go installed. Without it the pinned versions below are advisory.
+env:
+  GOTOOLCHAIN: local
+
 jobs:
-  run:
+  tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Go from go.mod
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: go.mod
+
+      - name: Ensure the Go module is nice and tidy
+        run: |
+          make tidy && git diff --exit-code go.mod go.sum
+        # We set the shell explicitly, here, and in other golang test actions,
+        # as by default multi-line shell scripts do not error out on the first
+        # failed command. Since we want an error reported if any of the lines
+        # fail, we set the shell explicitly:
+        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions?ref=cloudtechsimplified.com#exit-codes-and-error-action-preference
+        shell: bash
+
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [ '1.21', '1.22', '1.23' ]
+        # The declared floor from go.mod, then the two currently supported Go
+        # releases. Bump the upper pair when Go publishes a new release.
+        go-version: [ '1.21', '1.26', '1.27' ]
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -17,42 +46,52 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Ensure the Go module is nice and tidy
-        run: |
-          go mod tidy && git diff --exit-code go.mod go.sum
-        # We set the shell explicitly, here, and in other golang test actions,
-        # as by default multi-line shell scripts do not error out on the first
-        # failed command. Since we want an error reported if any of the lines
-        # fail, we set the shell explicitly:
-        # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions?ref=cloudtechsimplified.com#exit-codes-and-error-action-preference
-        shell: bash
-
-      - name: Install Tools
-        run: |
-          pushd "$(mktemp -d)"
-          go mod init example.com/m # fake module
-          go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.0
-          go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
-          popd
-        shell: bash
-
       - name: Verify Go Modules Setup
         run: go mod verify
         shell: bash
 
       - name: Build
-        run: go build -v ./...
+        run: make build
         shell: bash
-
-      - name: Sanity Check (staticcheck)
-        run: staticcheck ./...
-        shell: bash
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
 
       - name: Test
-        run: ginkgo -v -race -coverprofile=coverage.out -coverpkg=./... ./...
+        run: make test
+        shell: bash
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Go
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version: '1.27'
+
+      - name: Lint
+        run: make lint
+        shell: bash
+
+      - name: Check formatting
+        run: make check-fmt
+        shell: bash
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version: '1.27'
+
+      - name: Coverage
+        run: make coverage
         shell: bash
 
       - name: Upload coverage to Codecov
@@ -62,4 +101,3 @@ jobs:
           slug: maguro/gslog
           flags: smart-tests
           verbose: true
-

@@ -63,7 +63,7 @@ type Chimera struct {
 }
 
 func (u *Chimera) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"name":"%s"}`, u.Name)), nil
+	return []byte(fmt.Sprintf(`{"name":%q}`, u.Name)), nil
 }
 
 // Error should never be called since
@@ -139,15 +139,17 @@ func init() {
 		},
 	}
 
-	uGroup = append(uGroup, slog.String("id", "user-12234"))
-	uGroup = append(uGroup, slog.String("first_name", "Jan"))
-	uGroup = append(uGroup, slog.String("last_name", "Doe"))
-	uGroup = append(uGroup, slog.String("email", "jan@example.com"))
-	uGroup = append(uGroup, slog.Any("password", pw))
-	uGroup = append(uGroup, slog.Uint64("age", 32))
-	uGroup = append(uGroup, slog.Float64("height", 5.91))
-	uGroup = append(uGroup, slog.Bool("engineer", true))
-	uGroup = append(uGroup, slog.Any("manager", nil))
+	uGroup = append(uGroup,
+		slog.String("id", "user-12234"),
+		slog.String("first_name", "Jan"),
+		slog.String("last_name", "Doe"),
+		slog.String("email", "jan@example.com"),
+		slog.Any("password", pw),
+		slog.Uint64("age", 32),
+		slog.Float64("height", 5.91),
+		slog.Bool("engineer", true),
+		slog.Any("manager", nil),
+	)
 }
 
 func TestToJson(t *testing.T) {

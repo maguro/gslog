@@ -1,0 +1,153 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - dogsled
+    - dupl
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - funcorder
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - mnd
+    - nakedret
+    - noctx
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+  # don't enable:
+  # - asciicheck
+  # - copyloopvar   # needs go >= 1.22; go.mod declares 1.21
+  # - gochecknoglobals
+  # - gocognit
+  # - godot
+  # - godox
+  # - goerr113
+  # - nestif
+  # - prealloc
+  # - testpackage
+  # - wsl
+  settings:
+    dupl:
+      threshold: 100
+    exhaustive:
+      default-signifies-exhaustive: true
+    funcorder:
+      constructor: true
+      struct-method: true
+    funlen:
+      lines: 100
+      statements: 50
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+      ignore-tests: true
+    gocritic:
+      disabled-checks:
+        - dupImport # https://github.com/go-critic/go-critic/issues/845
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+        - wrapperFunc
+        # slog.Handler and logging.Logger take slog.Record and logging.Entry
+        # by value. A pointer parameter does not satisfy the interfaces.
+        - hugeParam
+        # Handler parameters use the same names as the slog level and attr
+        # packages this module imports.
+        - importShadow
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable:
+        - shadow
+    lll:
+      line-length: 140
+    misspell:
+      locale: US
+    revive:
+      rules:
+        - name: context-as-argument
+        - name: error-strings
+        - name: indent-error-flow
+        - name: receiver-naming
+    mnd:
+      # don't include the "operation" and "assign"
+      checks:
+        - argument
+        - case
+        - condition
+        - return
+    nolintlint:
+      require-explanation: false # don't require an explanation for nolint directives
+      require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+      allow-unused: false # report any unused nolint directives
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - errname
+          - funlen
+          - gochecknoinits
+          - lll
+          - mnd
+          - whitespace
+        path: _test\.go
+      - linters:
+          - govet
+        path: _test\.go
+        text: 'shadow:'
+      # https://github.com/go-critic/go-critic/issues/926
+      - linters:
+          - gocritic
+        text: 'unnecessaryDefer:'
+    paths:
+      - third_party$
+      - builtin$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(m4o.io/gslog)
+    goimports:
+      local-prefixes:
+        - m4o.io/gslog
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
