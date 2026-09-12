@@ -19,8 +19,6 @@ import (
 	"log/slog"
 
 	"cloud.google.com/go/logging"
-
-	"m4o.io/gslog/internal/options"
 )
 
 const (
@@ -55,58 +53,79 @@ func Label(key, value string) LabelPair {
 
 type labelsKey struct{}
 
-func doNothing(context.Context, *logging.Entry, []string) {}
-
-// WithLabels returns a new Context with labels to be used in the GCP log
-// entries produced using that context.
+// WithLabels returns a new Context that has the labels of ctx and the
+// supplied labels.  The handler adds these labels to each log entry that it
+// makes with that context.  A supplied label with the same key as a label of
+// ctx replaces the label of ctx.  The function panics if a label pair is not
+// valid.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
-	parentLabelClosure := labelsEntryAugmentorFrom(ctx)
+	parent := labelsFrom(ctx)
+	labels := make(map[string]string, len(parent)+len(labelPairs))
 
-	return context.WithValue(ctx, labelsKey{},
-		options.EntryAugmentor(func(ctx context.Context, entry *logging.Entry, groups []string) {
-			parentLabelClosure(ctx, entry, groups)
-
-			if entry.Labels == nil {
-				entry.Labels = make(map[string]string)
-			}
-
-			for _, labelPair := range labelPairs {
-				if labelPair.ignore {
-					continue
-				}
-
-				if !labelPair.valid {
-					panic("invalid label passed to WithLabels()")
-				}
-
-				if len(entry.Labels) >= maxLabels {
-					slog.Error("Too many labels", "ignored", labelPair)
-
-					continue
-				}
-
-				entry.Labels[labelPair.key] = labelPair.val
-			}
-		}),
-	)
-}
-
-// ExtractLabels extracts labels from the ctx.  These labels were associated
-// with the context using WithLabels.
-func ExtractLabels(ctx context.Context) map[string]string {
-	//nolint:exhaustruct
-	entry := &logging.Entry{}
-	labelsEntryAugmentorFrom(ctx)(ctx, entry, nil)
-
-	return entry.Labels
-}
-
-// labelsEntryAugmentorFrom extracts the latest labelClosure from the context.
-func labelsEntryAugmentorFrom(ctx context.Context) options.EntryAugmentor {
-	v, ok := ctx.Value(labelsKey{}).(options.EntryAugmentor)
-	if !ok {
-		return doNothing
+	for key, val := range parent {
+		labels[key] = val
 	}
 
-	return v
+	for _, labelPair := range labelPairs {
+		if labelPair.ignore {
+			continue
+		}
+
+		if !labelPair.valid {
+			panic("invalid label passed to WithLabels()")
+		}
+
+		if len(labels) >= maxLabels {
+			slog.Error("Too many labels", "ignored", labelPair)
+
+			continue
+		}
+
+		labels[labelPair.key] = labelPair.val
+	}
+
+	return context.WithValue(ctx, labelsKey{}, labels)
+}
+
+// ExtractLabels returns the labels that WithLabels stored in ctx.  The
+// returned map is a copy.
+func ExtractLabels(ctx context.Context) map[string]string {
+	labels := labelsFrom(ctx)
+	if labels == nil {
+		return nil
+	}
+
+	copied := make(map[string]string, len(labels))
+
+	for key, val := range labels {
+		copied[key] = val
+	}
+
+	return copied
+}
+
+// addLabels adds the labels of ctx to the entry.  If the entry has no
+// labels, addLabels gives the entry the map from ctx.
+func addLabels(ctx context.Context, entry *logging.Entry) {
+	labels := labelsFrom(ctx)
+	if len(labels) == 0 {
+		return
+	}
+
+	if entry.Labels == nil {
+		entry.Labels = labels
+
+		return
+	}
+
+	for key, val := range labels {
+		entry.Labels[key] = val
+	}
+}
+
+// labelsFrom returns the labels stored in ctx by WithLabels.
+func labelsFrom(ctx context.Context) map[string]string {
+	labels, _ := ctx.Value(labelsKey{}).(map[string]string)
+
+	return labels
 }

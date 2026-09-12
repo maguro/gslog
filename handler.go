@@ -130,7 +130,7 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 		b(ctx, &entry, h.groups)
 	}
 
-	labelsEntryAugmentorFrom(ctx)(ctx, &entry, h.groups)
+	addLabels(ctx, &entry)
 
 	if entry.Severity >= logging.Critical {
 		err := h.log.LogSync(ctx, entry)

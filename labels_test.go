@@ -32,13 +32,9 @@ var _ = Describe("gslog labels", func() {
 	})
 
 	When("context is initialized with bad labels", func() {
-		BeforeEach(func() {
-			ctx = gslog.WithLabels(ctx, gslog.LabelPair{})
-		})
-
-		It("should panic when extracting from the context", func() {
+		It("should panic", func() {
 			Ω(func() {
-				gslog.ExtractLabels(ctx)
+				gslog.WithLabels(ctx, gslog.LabelPair{})
 			}).Should(PanicWith("invalid label passed to WithLabels()"))
 		})
 	})
