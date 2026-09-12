@@ -77,6 +77,25 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 			})
 	})
 
+	When("the podinfo labels file has an empty label value", func() {
+		BeforeEach(func() {
+			root = "testdata/edge/podinfo"
+		})
+
+		It("the label is loaded with an empty value",
+			func() {
+				e := &logging.Entry{}
+				for _, a := range o.EntryAugmentors {
+					a(ctx, e, nil)
+				}
+
+				Ω(e.Labels).Should(MatchAllKeys(Keys{
+					k8s.PodPrefix + "app":   Equal("hello-world"),
+					k8s.PodPrefix + "empty": Equal(""),
+				}))
+			})
+	})
+
 	When("the podinfo labels file exists but contents are bad", func() {
 		BeforeEach(func() {
 			root = "testdata/ouch/podinfo"
