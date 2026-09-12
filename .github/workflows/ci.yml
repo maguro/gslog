@@ -1,6 +1,8 @@
 name: Workflow for CI
 on: [ push, pull_request ]
 
+permissions: read-all
+
 # GOTOOLCHAIN=local stops Go from downloading a toolchain newer than the one
 # setup-go installed. Without it the pinned versions below are advisory.
 env:
