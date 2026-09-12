@@ -77,13 +77,14 @@ func MustParse(bStr string) baggage.Baggage {
 func addBaggage(ctx context.Context, entry *logging.Entry, groups []string) {
 	bag := baggage.FromContext(ctx)
 
-	if len(bag.Members()) == 0 {
+	members := bag.Members()
+	if len(members) == 0 {
 		return
 	}
 
 	c := currentGroup(entry, groups)
 
-	for _, m := range bag.Members() {
+	for _, m := range members {
 		c.Fields[OtelBaggageKey+m.Key()] = baggageToGroup(m)
 	}
 }
@@ -113,7 +114,8 @@ func currentGroup(entry *logging.Entry, groups []string) *spb.Struct {
 }
 
 func baggageToGroup(member baggage.Member) *spb.Value {
-	if len(member.Properties()) == 0 {
+	props := member.Properties()
+	if len(props) == 0 {
 		return &spb.Value{
 			Kind: &spb.Value_StringValue{
 				StringValue: member.Value(),
@@ -136,9 +138,9 @@ func baggageToGroup(member baggage.Member) *spb.Value {
 		},
 	}
 
-	properties := make(map[string]*spb.Value)
+	properties := make(map[string]*spb.Value, len(props))
 
-	for _, prop := range member.Properties() {
+	for _, prop := range props {
 		var value *spb.Value
 
 		val, has := prop.Value()
