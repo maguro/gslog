@@ -45,6 +45,8 @@ func WrapAttrMapper(mapper Mapper) Mapper {
 	var wrapped Mapper
 
 	wrapped = func(groups []string, attr slog.Attr) slog.Attr {
+		attr.Value = attr.Value.Resolve()
+
 		if attr.Value.Kind() == slog.KindGroup {
 			var attrs []any
 

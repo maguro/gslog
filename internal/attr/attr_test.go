@@ -294,6 +294,38 @@ func TestWrapAttrMapper_nil(t *testing.T) {
 	assert.Nil(t, attr.WrapAttrMapper(nil))
 }
 
+type groupValuer struct{}
+
+func (groupValuer) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("password", "s3cret"), slog.Int("n", 1))
+}
+
+type stringValuer struct{}
+
+func (stringValuer) LogValue() slog.Value {
+	return slog.StringValue("v")
+}
+
+// The wrapper resolves a LogValuer before it inspects the kind.  The mapper
+// then sees the members of a group value and the kind of a scalar value.
+func TestWrapAttrMapper_resolvesLogValuer(t *testing.T) {
+	m := attr.WrapAttrMapper(genMapper(removeMapper, groups("h"), "password"))
+	actual := m(nil, slog.Any("h", groupValuer{}))
+
+	assert.Equal(t, slog.Group("h", slog.Int("n", 1)), actual)
+
+	var kind slog.Kind
+
+	m = attr.WrapAttrMapper(func(_ []string, a slog.Attr) slog.Attr {
+		kind = a.Value.Kind()
+
+		return a
+	})
+	m(nil, slog.Any("s", stringValuer{}))
+
+	assert.Equal(t, slog.KindString, kind)
+}
+
 // The wrapper must not write into the spare capacity of the groups slice,
 // which handlers share between concurrent calls.
 func TestWrapAttrMapper_doesNotWriteIntoCallerGroups(t *testing.T) {
