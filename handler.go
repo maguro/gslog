@@ -232,7 +232,7 @@ func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Rec
 		return dst
 	}
 
-	dst.Fields[name] = &spb.Value{Kind: &spb.Value_StructValue{StructValue: child}}
+	dst.Fields[name] = attr.NewStructValue(child)
 
 	return dst
 }

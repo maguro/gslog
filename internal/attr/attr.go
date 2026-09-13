@@ -142,19 +142,58 @@ func NewNilValue() *spb.Value {
 	return nilValue
 }
 
+// These types hold a spb.Value and its Kind in one object.  The Kind field
+// of the value points into the same object.
+type stringValue struct {
+	value spb.Value
+	kind  spb.Value_StringValue
+}
+
+type numberValue struct {
+	value spb.Value
+	kind  spb.Value_NumberValue
+}
+
+type boolValue struct {
+	value spb.Value
+	kind  spb.Value_BoolValue
+}
+
+type structValue struct {
+	value spb.Value
+	kind  spb.Value_StructValue
+}
+
 // NewStringValue creates the spb.Value equivalent of the supplied string.
 func NewStringValue(str string) *spb.Value {
-	return &spb.Value{Kind: &spb.Value_StringValue{StringValue: str}}
+	v := &stringValue{kind: spb.Value_StringValue{StringValue: str}}
+	v.value.Kind = &v.kind
+
+	return &v.value
 }
 
 // NewNumberValue creates the spb.Value equivalent of the supplied float64.
 func NewNumberValue(val float64) *spb.Value {
-	return &spb.Value{Kind: &spb.Value_NumberValue{NumberValue: val}}
+	v := &numberValue{kind: spb.Value_NumberValue{NumberValue: val}}
+	v.value.Kind = &v.kind
+
+	return &v.value
 }
 
 // NewBoolValue creates the spb.Value equivalent of the supplied bool.
 func NewBoolValue(b bool) *spb.Value {
-	return &spb.Value{Kind: &spb.Value_BoolValue{BoolValue: b}}
+	v := &boolValue{kind: spb.Value_BoolValue{BoolValue: b}}
+	v.value.Kind = &v.kind
+
+	return &v.value
+}
+
+// NewStructValue creates the spb.Value that holds the supplied spb.Struct.
+func NewStructValue(s *spb.Struct) *spb.Value {
+	v := &structValue{kind: spb.Value_StructValue{StructValue: s}}
+	v.value.Kind = &v.kind
+
+	return &v.value
 }
 
 // NewGroupValue creates the spb.Value equivalent of the supplied slog.Attr array.
@@ -164,7 +203,7 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 		DecorateWith(p, b)
 	}
 
-	return &spb.Value{Kind: &spb.Value_StructValue{StructValue: p}}
+	return NewStructValue(p)
 }
 
 // NewAny creates the spb.Value equivalent of the supplied any instance.
@@ -173,7 +212,7 @@ func NewAny(a any) (*spb.Value, bool) {
 	// text.
 	_, jm := a.(json.Marshaler)
 	if err, ok := a.(error); ok && !jm {
-		return &spb.Value{Kind: &spb.Value_StringValue{StringValue: err.Error()}}, true
+		return NewStringValue(err.Error()), true
 	}
 
 	// The value can map directly to a spb.Value.
@@ -187,7 +226,7 @@ func NewAny(a any) (*spb.Value, bool) {
 
 // NewTimeValue creates the spb.Value equivalent of the supplied time.Time instance.
 func NewTimeValue(t time.Time) *spb.Value {
-	return &spb.Value{Kind: &spb.Value_StringValue{StringValue: TimeToRFC3339InMs(t)}}
+	return NewStringValue(TimeToRFC3339InMs(t))
 }
 
 // AsJSON tries to convert the attribute a to a JSON object.  AsJSON then
