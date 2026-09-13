@@ -27,8 +27,17 @@ const (
 	severityIncrement = 100
 )
 
-// ToSeverity converts slog.Level logging levels to logging.Severity.
+// ToSeverity clamps a level to the range lowestLevel to highestLevel.
+const (
+	lowestLevel  = slog.Level(-severityIntercept)
+	highestLevel = slog.Level(20)
+)
+
+// ToSeverity converts slog.Level logging levels to logging.Severity.  The
+// result is in the range logging.Default to logging.Emergency.
 func ToSeverity(level slog.Level) logging.Severity {
+	level = min(max(level, lowestLevel), highestLevel)
+
 	severity := logging.Severity((int(level) + severityIntercept) / severitySlope * severityIncrement)
 	if slog.LevelInfo < level {
 		return severity + severityIncrement

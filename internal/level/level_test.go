@@ -16,6 +16,7 @@ package level_test
 
 import (
 	"log/slog"
+	"math"
 
 	"cloud.google.com/go/logging"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,4 +39,8 @@ var _ = DescribeTable("Mapping slog.Level to logging.Severity",
 	Entry("critical", gslog.LevelCritical, logging.Critical),
 	Entry("alert", gslog.LevelAlert, logging.Alert),
 	Entry("emergency", gslog.LevelEmergency, logging.Emergency),
+	Entry("below the range", slog.Level(-12), logging.Default),
+	Entry("above the range", slog.Level(24), logging.Emergency),
+	Entry("lowest level", slog.Level(math.MinInt), logging.Default),
+	Entry("highest level", slog.Level(math.MaxInt), logging.Emergency),
 )
