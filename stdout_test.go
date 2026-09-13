@@ -1,0 +1,304 @@
+// Copyright 2024 The original author or authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package gslog_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/trace"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/otel"
+)
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("closed")
+}
+
+func decodeLine(t *testing.T, buf *bytes.Buffer) map[string]any {
+	t.Helper()
+
+	line := buf.String()
+	require.True(t, strings.HasSuffix(line, "\n"), "line must end with a newline")
+	require.Equal(t, 1, strings.Count(line, "\n"), "one line per entry")
+
+	var decoded map[string]any
+
+	require.NoError(t, json.Unmarshal([]byte(line), &decoded))
+
+	return decoded
+}
+
+func TestStdoutHandler_agentFields(t *testing.T) {
+	var buf bytes.Buffer
+
+	h := gslog.NewStdoutHandler(&buf, gslog.WithSourceAdded(), otel.WithOtelTracing("my-project"))
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{0x52, 0xfc, 0x16, 0x43, 0xa9, 0x38, 0x1f, 0xc6, 0x74, 0x74, 0x2b, 0xb0, 0x06, 0x71, 0x01, 0xe7},
+		SpanID:     trace.SpanID{0xd3, 0xe9, 0xe8, 0xc5, 0x1c, 0xb1, 0x90, 0xdf},
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
+	ctx = gslog.WithLabels(ctx, gslog.Label("b", "two"), gslog.Label("a", "one"))
+
+	record := slog.NewRecord(testTime, slog.LevelWarn, "How now brown cow?", callerPC(2))
+	record.AddAttrs(slog.Int("count", 3))
+
+	require.NoError(t, h.Handle(ctx, record))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "WARNING", got["severity"])
+	assert.Equal(t, "How now brown cow?", got["message"])
+	assert.Equal(t, "2000-01-02T03:04:05Z", got["timestamp"])
+	assert.Equal(t, map[string]any{"a": "one", "b": "two"}, got["logging.googleapis.com/labels"])
+	assert.Equal(t, "projects/my-project/traces/52fc1643a9381fc674742bb0067101e7", got["logging.googleapis.com/trace"])
+	assert.Equal(t, "d3e9e8c51cb190df", got["logging.googleapis.com/spanId"])
+	assert.Equal(t, true, got["logging.googleapis.com/trace_sampled"])
+	assert.Equal(t, 3.0, got["count"])
+
+	loc, ok := got["logging.googleapis.com/sourceLocation"].(map[string]any)
+	require.True(t, ok)
+	assert.Contains(t, loc["file"], "stdout_test.go")
+	assert.Contains(t, loc["function"], "TestStdoutHandler_agentFields")
+	assert.IsType(t, "", loc["line"])
+}
+
+func TestStdoutHandler_groups(t *testing.T) {
+	var buf bytes.Buffer
+
+	l := slog.New(gslog.NewStdoutHandler(&buf)).
+		With("svc", "api").
+		WithGroup("req").With("id", "abc").
+		WithGroup("user")
+
+	l.Info("hello", "name", "jan", slog.Group("addr", "city", "Oslo"))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "INFO", got["severity"])
+	assert.Equal(t, "hello", got["message"])
+	assert.Equal(t, "api", got["svc"])
+	assert.Equal(t, map[string]any{
+		"id":   "abc",
+		"user": map[string]any{"name": "jan", "addr": map[string]any{"city": "Oslo"}},
+	}, got["req"])
+}
+
+func TestStdoutHandler_reservedKeysAreDropped(t *testing.T) {
+	var buf bytes.Buffer
+
+	slog.New(gslog.NewStdoutHandler(&buf)).Info("hello", "severity", "bogus", "timestamp", "bogus", "kept", 1)
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "INFO", got["severity"])
+	assert.NotEqual(t, "bogus", got["timestamp"])
+	assert.Equal(t, 1.0, got["kept"])
+}
+
+func TestStdoutHandler_zeroTimeHasNoTimestamp(t *testing.T) {
+	var buf bytes.Buffer
+
+	h := gslog.NewStdoutHandler(&buf)
+	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
+
+	require.NoError(t, h.Handle(context.Background(), record))
+
+	got := decodeLine(t, &buf)
+
+	assert.NotContains(t, got, "timestamp")
+}
+
+func TestStdoutHandler_writeError(t *testing.T) {
+	h := gslog.NewStdoutHandler(failingWriter{})
+
+	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+
+	assert.Error(t, h.Handle(context.Background(), record))
+}
+
+func TestStdoutHandler_siblingsDoNotShareAttrs(t *testing.T) {
+	var buf bytes.Buffer
+
+	parent := gslog.NewStdoutHandler(&buf)
+	first := slog.New(parent.WithAttrs([]slog.Attr{slog.String("a", "1")}))
+	second := slog.New(parent.WithAttrs([]slog.Attr{slog.String("b", "2")}))
+
+	slog.New(parent).Info("parent")
+	gotParent := decodeLine(t, &buf)
+	buf.Reset()
+
+	first.Info("first")
+	gotFirst := decodeLine(t, &buf)
+	buf.Reset()
+
+	second.Info("second")
+	gotSecond := decodeLine(t, &buf)
+
+	assert.NotContains(t, gotParent, "a")
+	assert.NotContains(t, gotParent, "b")
+	assert.Equal(t, "1", gotFirst["a"])
+	assert.NotContains(t, gotFirst, "b")
+	assert.Equal(t, "2", gotSecond["b"])
+	assert.NotContains(t, gotSecond, "a")
+}
+
+func TestStdoutHandler_emptyGroupsAreNotWritten(t *testing.T) {
+	var buf bytes.Buffer
+
+	slog.New(gslog.NewStdoutHandler(&buf)).With("svc", "api").WithGroup("req").WithGroup("user").Info("hello")
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "api", got["svc"])
+	assert.NotContains(t, got, "req")
+}
+
+func TestStdoutHandler_baggageInGroup(t *testing.T) {
+	var buf bytes.Buffer
+
+	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+	slog.New(gslog.NewStdoutHandler(&buf, otel.WithOtelBaggage())).
+		WithGroup("req").With("id", "abc").
+		InfoContext(ctx, "hello", "n", 1)
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, map[string]any{
+		"id":             "abc",
+		"n":              1.0,
+		"otel-baggage/a": "one",
+		"otel-baggage/b": map[string]any{"value": "two", "properties": map[string]any{"p1": nil, "p2": "val2"}},
+	}, got["req"])
+}
+
+func TestStdoutHandler_replaceAttr(t *testing.T) {
+	var buf bytes.Buffer
+
+	remove := func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == "password" {
+			return slog.Attr{}
+		}
+
+		if a.Key == gslog.MessageKey && len(groups) == 0 {
+			return slog.String("msg", a.Value.String())
+		}
+
+		return a
+	}
+
+	slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(remove))).
+		With("password", "x", "user", "jan").
+		Info("hello", "password", "y", "n", 1)
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "hello", got["msg"])
+	assert.NotContains(t, got, "message")
+	assert.NotContains(t, got, "password")
+	assert.Equal(t, "jan", got["user"])
+	assert.Equal(t, 1.0, got["n"])
+}
+
+func TestStdoutHandler_attrKinds(t *testing.T) {
+	var buf bytes.Buffer
+
+	type point struct {
+		X, Y int
+	}
+
+	slog.New(gslog.NewStdoutHandler(&buf)).Info("kinds",
+		slog.Int("i", -3),
+		slog.Uint64("u", 7),
+		slog.Float64("f", 2.5),
+		slog.Bool("b", true),
+		slog.Duration("d", 1500*time.Millisecond),
+		slog.Time("t", testTime),
+		slog.Any("err", errors.New("ouch")),
+		slog.Any("p", point{1, 2}),
+		slog.Any("nil", nil),
+		slog.Any("bad", make(chan int)),
+		slog.Group("g", slog.String("k", "v")),
+		slog.Group("empty"),
+	)
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, -3.0, got["i"])
+	assert.Equal(t, 7.0, got["u"])
+	assert.Equal(t, 2.5, got["f"])
+	assert.Equal(t, true, got["b"])
+	assert.Equal(t, 1.5e9, got["d"])
+	assert.Equal(t, "2000-01-02T03:04:05.000Z", got["t"])
+	assert.Equal(t, "ouch", got["err"])
+	assert.Equal(t, map[string]any{"X": 1.0, "Y": 2.0}, got["p"])
+	assert.Contains(t, got, "nil")
+	assert.Nil(t, got["nil"])
+	assert.NotContains(t, got, "bad")
+	assert.Equal(t, map[string]any{"k": "v"}, got["g"])
+	assert.NotContains(t, got, "empty")
+}
+
+func TestStdoutHandler_concurrentLinesDoNotInterleave(t *testing.T) {
+	var buf bytes.Buffer
+
+	l := slog.New(gslog.NewStdoutHandler(&buf))
+
+	const (
+		goroutines = 8
+		perRoutine = 200
+	)
+
+	done := make(chan struct{})
+
+	for g := range goroutines {
+		go func() {
+			for i := range perRoutine {
+				l.Info("line", "g", g, "i", i, "pad", strings.Repeat("x", 200))
+			}
+
+			done <- struct{}{}
+		}()
+	}
+
+	for range goroutines {
+		<-done
+	}
+
+	lines := strings.Split(strings.TrimSuffix(buf.String(), "\n"), "\n")
+	require.Len(t, lines, goroutines*perRoutine)
+
+	for _, line := range lines {
+		var decoded map[string]any
+
+		require.NoError(t, json.Unmarshal([]byte(line), &decoded), line)
+	}
+}

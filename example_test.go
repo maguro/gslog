@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/baggage"
@@ -259,7 +260,7 @@ func ExampleNewGcpHandler_withSourceAdded() {
 
 	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gslog/example_test.go","function":"m4o.io/gslog_test.ExampleNewGcpHandler_withSourceAdded","line":"260"}
+	// Output: {"file":"gslog/example_test.go","function":"m4o.io/gslog_test.ExampleNewGcpHandler_withSourceAdded","line":"261"}
 }
 
 // RemovePassword is a gslog.AttrMapper that elides password attributes.
@@ -329,4 +330,17 @@ func ExampleNewGcpHandler_withDefaultLogLeveler() {
 	l.Error("The rain in Spain lies mainly on the plane.")
 
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
+}
+
+// NewStdoutHandler writes each entry to the writer as one line of JSON in
+// the format that the Google Cloud logging agent reads.
+func ExampleNewStdoutHandler() {
+	h := gslog.NewStdoutHandler(os.Stdout)
+
+	r := slog.NewRecord(time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC), slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(slog.String("animal", "cow"))
+
+	_ = h.Handle(context.Background(), r)
+
+	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","animal":"cow"}
 }

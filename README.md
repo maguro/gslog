@@ -2,6 +2,7 @@
 
 ![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.26-%23007d9c)
 [![Documentation](https://pkg.go.dev/badge/m4o.io/gslog.svg)](https://pkg.go.dev/m4o.io/gslog)
+[![Go Report Card](https://goreportcard.com/badge/m4o.io/gslog)](https://goreportcard.com/report/m4o.io/gslog)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maguro/gslog/badge)](https://scorecard.dev/viewer/?uri=github.com/maguro/gslog)
 [![codecov](https://codecov.io/gh/maguro/gslog/graph/badge.svg?token=3FAJJ2SIZB)](https://codecov.io/gh/maguro/gslog)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
@@ -92,6 +93,25 @@ if err != nil {
    // TODO: Handle error.
 }
 ```
+
+## Structured Logging to Stdout
+
+On Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent, a logging
+agent reads stdout. `gslog.NewStdoutHandler` writes each entry as one line of
+JSON in the [structured logging format](https://cloud.google.com/logging/docs/structured-logging)
+that the agent reads. The agent makes the same GCL entry that the API client
+makes, with the same severity, labels, trace fields, and `jsonPayload`.
+
+```go
+h := gslog.NewStdoutHandler(os.Stdout)
+l := slog.New(h)
+
+l.Info("How now brown cow?")
+```
+
+This handler does not use a `logging.Client`. Each entry is written before
+the log call returns, so no entry waits in a buffer when the instance stops.
+All options in the table below work with both handlers.
 
 ## Logger Configuration Options
 

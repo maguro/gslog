@@ -62,13 +62,13 @@ func WithLogLevelFromEnvVar(key string) options.OptionProcessor {
 	}
 
 	switch str {
-	case "DEBUG":
+	case nameDebug:
 		envVarLogLevel = slog.LevelDebug
-	case "INFO":
+	case nameInfo:
 		envVarLogLevel = slog.LevelInfo
 	case "WARN":
 		envVarLogLevel = slog.LevelWarn
-	case "ERROR":
+	case nameError:
 		envVarLogLevel = slog.LevelError
 	default:
 		envVarLogLevel = slog.LevelInfo

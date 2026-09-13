@@ -30,3 +30,11 @@ const (
 	// LevelEmergency means one or more systems are unusable.
 	LevelEmergency = slog.Level(20)
 )
+
+// The names of the levels that the environment variable and the Cloud
+// Logging API share.
+const (
+	nameDebug = "DEBUG"
+	nameInfo  = "INFO"
+	nameError = "ERROR"
+)
