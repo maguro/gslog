@@ -114,21 +114,20 @@ func (h *StdoutHandler) Handle(ctx context.Context, record slog.Record) error {
 
 	h.fillEntry(ctx, &entry, &record)
 
-	bufp, _ := bufferPool.Get().(*[]byte)
-	w := jsonWriter{buf: append((*bufp)[:0], '{'), first: true}
+	w, _ := writerPool.Get().(*jsonWriter)
+	w.reset()
 
-	h.appendHeader(&w, &entry, &record)
+	h.appendHeader(w, &entry, &record)
 
 	payload, _ := entry.Payload.(*spb.Struct)
-	h.appendBody(&w, payload, &record)
+	h.appendBody(w, payload, &record)
 
 	w.buf = append(w.buf, '}', '\n')
 
 	err := h.out.write(w.buf)
 
 	if cap(w.buf) <= maxPooledBuffer {
-		*bufp = w.buf
-		bufferPool.Put(bufp)
+		writerPool.Put(w)
 	}
 
 	if err != nil {
@@ -261,10 +260,9 @@ func (h *StdoutHandler) appendHeader(w *jsonWriter, entry *logging.Entry, record
 // with no content at or below its level is not written.
 func (h *StdoutHandler) appendBody(w *jsonWriter, payload *spb.Struct, record *slog.Record) {
 	last := len(h.groups)
-	deepest := h.deepestLevel(payload, record)
 	current := payload
 
-	for i := 0; i <= deepest; i++ {
+	for i := 0; i <= last; i++ {
 		if i > 0 {
 			w.openGroup(h.groups[i-1])
 		}
@@ -282,34 +280,9 @@ func (h *StdoutHandler) appendBody(w *jsonWriter, payload *spb.Struct, record *s
 		h.appendRecordAttrs(w, record, i == 0)
 	}
 
-	for range deepest {
+	for range last {
 		w.closeGroup()
 	}
-}
-
-// deepestLevel returns the deepest group level that has a prefix, a payload
-// field, or a record attribute.
-func (h *StdoutHandler) deepestLevel(payload *spb.Struct, record *slog.Record) int {
-	last := len(h.groups)
-	deepest := 0
-	current := payload
-
-	for i := 0; i <= last; i++ {
-		skip := ""
-		if i < last {
-			skip = h.groups[i]
-		}
-
-		if len(h.prefix[i]) > 0 || hasPayloadField(current, skip) || (i == last && record.NumAttrs() > 0) {
-			deepest = i
-		}
-
-		if i < last {
-			current = current.GetFields()[skip].GetStructValue()
-		}
-	}
-
-	return deepest
 }
 
 // appendRecordAttrs appends the attributes of the record.
@@ -358,10 +331,6 @@ func (h *StdoutHandler) appendAttr(w *jsonWriter, a slog.Attr, topLevel bool) {
 // appendGroupAttr appends a group attribute as a nested object.  A group
 // with an empty key is written in the current object.
 func (h *StdoutHandler) appendGroupAttr(w *jsonWriter, key string, attrs []slog.Attr, topLevel bool) {
-	if len(attrs) == 0 {
-		return
-	}
-
 	if key == "" {
 		for _, a := range attrs {
 			h.appendAttr(w, a, topLevel)
@@ -448,18 +417,6 @@ func appendPayloadLevel(w *jsonWriter, s *spb.Struct, skip string, topLevel bool
 	}
 }
 
-// hasPayloadField reports whether the struct has a field with a key other
-// than skip.
-func hasPayloadField(s *spb.Struct, skip string) bool {
-	for key := range s.GetFields() {
-		if key != skip {
-			return true
-		}
-	}
-
-	return false
-}
-
 // isAgentKey reports whether the agent reads the key.
 func isAgentKey(key string) bool {
 	switch key {
@@ -489,14 +446,26 @@ func (l *lineWriter) write(line []byte) error {
 }
 
 // jsonWriter appends JSON members to a buffer.  first is true when the next
-// member is the first one in the open object.
+// member is the first one in the open object.  A group becomes a nested
+// object when the writer appends the first member of the group.  pending
+// holds the keys of the groups that have no member yet.
 type jsonWriter struct {
-	buf   []byte
-	first bool
+	buf     []byte
+	first   bool
+	pending []string
+}
+
+// reset starts a new top-level object.
+func (w *jsonWriter) reset() {
+	w.buf = append(w.buf[:0], '{')
+	w.first = true
+	w.pending = w.pending[:0]
 }
 
 // key appends the separator, if needed, and the key.
 func (w *jsonWriter) key(key string) {
+	w.openPending()
+
 	if !w.first {
 		w.buf = append(w.buf, ',')
 	}
@@ -511,6 +480,8 @@ func (w *jsonWriter) raw(members []byte) {
 		return
 	}
 
+	w.openPending()
+
 	if !w.first {
 		w.buf = append(w.buf, ',')
 	}
@@ -519,24 +490,43 @@ func (w *jsonWriter) raw(members []byte) {
 	w.buf = append(w.buf, members...)
 }
 
-// openGroup appends the key and opens a nested object.
+// openGroup starts a group.  The writer appends the key and the nested
+// object when it appends the first member of the group.
 func (w *jsonWriter) openGroup(key string) {
-	w.key(key)
-	w.buf = append(w.buf, '{')
-	w.first = true
+	w.pending = append(w.pending, key)
 }
 
-// closeGroup closes the nested object.
+// closeGroup ends the group.  The writer appends nothing for a group with
+// no member.
 func (w *jsonWriter) closeGroup() {
+	if n := len(w.pending); n > 0 {
+		w.pending = w.pending[:n-1]
+
+		return
+	}
+
 	w.buf = append(w.buf, '}')
 	w.first = false
 }
 
-var bufferPool = sync.Pool{
-	New: func() any {
-		b := make([]byte, 0, initialBufferSize)
+// openPending appends the key and the nested object of each pending group.
+func (w *jsonWriter) openPending() {
+	for _, key := range w.pending {
+		if !w.first {
+			w.buf = append(w.buf, ',')
+		}
 
-		return &b
+		w.buf = appendKey(w.buf, key)
+		w.buf = append(w.buf, '{')
+		w.first = true
+	}
+
+	w.pending = w.pending[:0]
+}
+
+var writerPool = sync.Pool{
+	New: func() any {
+		return &jsonWriter{buf: make([]byte, 0, initialBufferSize), first: true, pending: nil}
 	},
 }
 

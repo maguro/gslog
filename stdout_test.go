@@ -213,6 +213,63 @@ func TestStdoutHandler_emptyGroupsAreNotWritten(t *testing.T) {
 	assert.NotContains(t, got, "req")
 }
 
+// When the mapper or the encoder elides every record attribute, the handler
+// does not write a group that has no other content.
+func TestStdoutHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
+	drop := func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == "password" {
+			return slog.Attr{}
+		}
+
+		return a
+	}
+
+	tests := map[string]struct {
+		log  func(l *slog.Logger)
+		want map[string]any
+	}{
+		"replaced attr": {
+			log: func(l *slog.Logger) {
+				l.With("svc", "api").WithGroup("req").Info("hello", "password", "y")
+			},
+			want: map[string]any{"svc": "api"},
+		},
+		"unencodable attr in nested groups": {
+			log: func(l *slog.Logger) {
+				l.WithGroup("a").WithGroup("b").Info("hello", slog.Any("ch", make(chan int)))
+			},
+			want: map[string]any{},
+		},
+		"prefix in the middle group": {
+			log: func(l *slog.Logger) {
+				l.WithGroup("a").With("x", "1").WithGroup("b").Info("hello", "password", "y")
+			},
+			want: map[string]any{"a": map[string]any{"x": "1"}},
+		},
+		"group attr with an unencodable member": {
+			log: func(l *slog.Logger) {
+				l.Info("hello", slog.Group("g", slog.Any("ch", make(chan int))), "kept", 1)
+			},
+			want: map[string]any{"kept": 1.0},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+
+			tc.log(slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(drop))))
+
+			got := decodeLine(t, &buf)
+			delete(got, "severity")
+			delete(got, "message")
+			delete(got, "timestamp")
+
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestStdoutHandler_baggageInGroup(t *testing.T) {
 	var buf bytes.Buffer
 
