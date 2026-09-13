@@ -48,8 +48,13 @@ func WrapAttrMapper(mapper Mapper) Mapper {
 		if attr.Value.Kind() == slog.KindGroup {
 			var attrs []any
 
+			// Concurrent calls can share the backing array of groups.
+			path := make([]string, len(groups), len(groups)+1)
+			copy(path, groups)
+			path = append(path, attr.Key)
+
 			for _, ga := range attr.Value.Group() {
-				mapped := wrapped(append(groups, attr.Key), ga)
+				mapped := wrapped(path, ga)
 
 				// elide empty attributes
 				if mapped.Key == "" && mapped.Value.Any() == nil {

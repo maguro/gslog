@@ -17,12 +17,14 @@ package gslog_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -299,6 +301,43 @@ func TestConcurrentWrites(t *testing.T) {
 }
 
 // Verify the common parts of TextHandler and JSONHandler.
+// Concurrent log calls with a group attribute must each see their own
+// group path in the mapper.
+func TestConcurrentGroupMapper(t *testing.T) {
+	const (
+		goroutines = 8
+		iterations = 500
+	)
+
+	var wrong atomic.Int64
+
+	mapper := func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == "k" && groups[len(groups)-1] != a.Value.String() {
+			wrong.Add(1)
+		}
+
+		return a
+	}
+
+	h := gslog.NewGcpHandler(gslog.LoggerFunc(func(logging.Entry) {}), gslog.WithReplaceAttr(mapper))
+	l := slog.New(h).WithGroup("a").WithGroup("b").WithGroup("c")
+
+	var wg sync.WaitGroup
+
+	for i := range goroutines {
+		wg.Go(func() {
+			name := fmt.Sprintf("g%d", i)
+			for range iterations {
+				l.Info("m", slog.Group(name, slog.String("k", name)))
+			}
+		})
+	}
+
+	wg.Wait()
+
+	assert.Zero(t, wrong.Load())
+}
+
 func TestJSONAndTextHandlers(t *testing.T) {
 	// remove all Attrs
 	removeAll := func(_ []string, a slog.Attr) slog.Attr { return slog.Attr{} }

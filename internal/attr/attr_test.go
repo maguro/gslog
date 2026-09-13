@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -291,6 +292,26 @@ func TestWrapAttrMapper(t *testing.T) {
 
 func TestWrapAttrMapper_nil(t *testing.T) {
 	assert.Nil(t, attr.WrapAttrMapper(nil))
+}
+
+// The wrapper must not write into the spare capacity of the groups slice,
+// which handlers share between concurrent calls.
+func TestWrapAttrMapper_doesNotWriteIntoCallerGroups(t *testing.T) {
+	backing := [2]string{"g", "untouched"}
+	groups := backing[:1]
+
+	var seen []string
+
+	m := attr.WrapAttrMapper(func(g []string, a slog.Attr) slog.Attr {
+		seen = slices.Clone(g)
+
+		return a
+	})
+
+	m(groups, slog.Group("h", slog.Int("a", 1)))
+
+	assert.Equal(t, []string{"g", "h"}, seen)
+	assert.Equal(t, "untouched", backing[1])
 }
 
 const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
