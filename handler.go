@@ -25,7 +25,6 @@ import (
 	"cloud.google.com/go/logging"
 	logpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog/internal/attr"
@@ -149,7 +148,8 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 func (h *GcpHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	handler2 := h.clone()
 
-	current := fromPath(handler2.payload, handler2.groups)
+	payload, current := copyPath(h.payload, h.groups)
+	handler2.payload = payload
 
 	for _, a := range attrs {
 		if h.replaceAttr != nil {
@@ -171,15 +171,10 @@ func (h *GcpHandler) WithGroup(name string) slog.Handler {
 
 	handler2 := h.clone()
 
-	current := fromPath(handler2.payload, handler2.groups)
+	payload, current := copyPath(h.payload, h.groups)
+	handler2.payload = payload
 
-	current.Fields[name] = &spb.Value{
-		Kind: &spb.Value_StructValue{
-			StructValue: &spb.Struct{
-				Fields: make(map[string]*spb.Value),
-			},
-		},
-	}
+	current.Fields[name] = attr.NewStructValue(&spb.Struct{Fields: make(map[string]*spb.Value)})
 
 	handler2.groups = append(handler2.groups, name)
 
@@ -237,10 +232,8 @@ func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Rec
 	return dst
 }
 
+// clone returns a copy of the handler.  The copy shares the payload of h.
 func (h *GcpHandler) clone() *GcpHandler {
-	//nolint:forcetypeassert
-	payload2 := proto.Clone(h.payload).(*spb.Struct)
-
 	return &GcpHandler{
 		log:   h.log,
 		level: h.level,
@@ -249,7 +242,7 @@ func (h *GcpHandler) clone() *GcpHandler {
 		entryAugmentors: h.entryAugmentors,
 		replaceAttr:     h.replaceAttr,
 
-		payload: payload2,
+		payload: h.payload,
 		groups:  slices.Clip(h.groups),
 	}
 }
@@ -265,16 +258,22 @@ func addSourceLocation(e *logging.Entry, r *slog.Record) {
 	}
 }
 
-func fromPath(payload *spb.Struct, path []string) *spb.Struct {
-	for _, k := range path {
-		payload = payload.GetFields()[k].GetStructValue()
+// copyPath returns a copy of src with a new struct at each level of path.
+// The copy shares all values of src that are not on path.  copyPath also
+// returns the struct at the end of path.
+func copyPath(src *spb.Struct, path []string) (top, current *spb.Struct) {
+	top = &spb.Struct{Fields: cloneFields(src)}
+	current = top
+
+	for _, name := range path {
+		group := current.Fields[name].GetStructValue()
+		child := &spb.Struct{Fields: cloneFields(group)}
+
+		current.Fields[name] = attr.NewStructValue(child)
+		current = child
 	}
 
-	if payload.Fields == nil {
-		payload.Fields = make(map[string]*spb.Value)
-	}
-
-	return payload
+	return top, current
 }
 
 // cloneFields returns a new map with the same keys and values as the fields
