@@ -16,6 +16,8 @@ package otel
 
 import (
 	"context"
+	"encoding/hex"
+	"strings"
 
 	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/trace"
@@ -35,7 +37,7 @@ func WithOtelTracing(projectID string) options.OptionProcessor {
 				spanContext := trace.SpanContextFromContext(ctx)
 
 				if spanContext.HasTraceID() {
-					entry.Trace = tracePrefix + spanContext.TraceID().String()
+					entry.Trace = traceName(tracePrefix, spanContext.TraceID())
 				}
 
 				if spanContext.HasSpanID() {
@@ -47,4 +49,19 @@ func WithOtelTracing(projectID string) options.OptionProcessor {
 				}
 			})
 	}
+}
+
+// traceName returns the prefix followed by the hex form of the trace ID.
+func traceName(prefix string, traceID trace.TraceID) string {
+	var hexID [2 * len(traceID)]byte
+
+	hex.Encode(hexID[:], traceID[:])
+
+	var b strings.Builder
+
+	b.Grow(len(prefix) + len(hexID))
+	b.WriteString(prefix)
+	b.Write(hexID[:])
+
+	return b.String()
 }
