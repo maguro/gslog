@@ -132,8 +132,7 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 	addLabels(ctx, &entry)
 
 	if entry.Severity >= logging.Critical {
-		err := h.log.LogSync(ctx, entry)
-		if err != nil {
+		if err := h.log.LogSync(ctx, entry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error logging: %s\n%s", record.Message, err)
 		}
 	} else {
