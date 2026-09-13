@@ -73,8 +73,9 @@ func TestCombinedValueCloneIsIndependent(t *testing.T) {
 	assert.NotEqual(t, origKind, clKind, "clone must not share the wrapper")
 }
 
-// The wrapper address lies inside the object that holds the value, so the
-// value keeps the wrapper alive.
+// TestCombinedValueWrapperIsSameObject verifies that the wrapper address
+// lies inside the object that holds the value.  The value keeps the wrapper
+// alive.
 func TestCombinedValueWrapperIsSameObject(t *testing.T) {
 	v := attr.NewStringValue("hello")
 

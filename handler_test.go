@@ -300,9 +300,9 @@ func TestConcurrentWrites(t *testing.T) {
 	assert.Equal(t, count, s2Count)
 }
 
-// Verify the common parts of TextHandler and JSONHandler.
-// Concurrent log calls with a group attribute must each see their own
-// group path in the mapper.
+// TestConcurrentGroupMapper verifies the common parts of TextHandler and
+// JSONHandler.  Concurrent log calls with a group attribute must each see
+// their own group path in the mapper.
 func TestConcurrentGroupMapper(t *testing.T) {
 	const (
 		goroutines = 8

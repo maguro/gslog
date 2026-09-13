@@ -67,8 +67,8 @@ func (u *Chimera) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`{"name":%q}`, u.Name)), nil
 }
 
-// Chimera implements json.Marshaler.  Because of this, NewAny must not call
-// Error.
+// Error panics.  NewAny must not call Error on a type that implements
+// json.Marshaler.
 func (u *Chimera) Error() string {
 	panic("ouch")
 }
@@ -306,8 +306,9 @@ func (stringValuer) LogValue() slog.Value {
 	return slog.StringValue("v")
 }
 
-// The wrapper resolves a LogValuer before it inspects the kind.  The mapper
-// then sees the members of a group value and the kind of a scalar value.
+// TestWrapAttrMapper_resolvesLogValuer verifies that the wrapper resolves a
+// LogValuer before it inspects the kind.  The mapper then sees the members
+// of a group value and the kind of a scalar value.
 func TestWrapAttrMapper_resolvesLogValuer(t *testing.T) {
 	m := attr.WrapAttrMapper(genMapper(removeMapper, groups("h"), "password"))
 	actual := m(nil, slog.Any("h", groupValuer{}))
@@ -326,8 +327,9 @@ func TestWrapAttrMapper_resolvesLogValuer(t *testing.T) {
 	assert.Equal(t, slog.KindString, kind)
 }
 
-// The wrapper must not write into the spare capacity of the groups slice,
-// which handlers share between concurrent calls.
+// TestWrapAttrMapper_doesNotWriteIntoCallerGroups verifies that the wrapper
+// does not write into the spare capacity of the groups slice.  Handlers
+// share that slice between concurrent calls.
 func TestWrapAttrMapper_doesNotWriteIntoCallerGroups(t *testing.T) {
 	backing := [2]string{"g", "untouched"}
 	groups := backing[:1]

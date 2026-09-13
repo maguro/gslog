@@ -18,10 +18,10 @@ import (
 	"m4o.io/gslog/internal/attr"
 )
 
-// The handler calls an AttrMapper to rewrite each non-group attribute before
-// the handler logs the attribute.  The handler resolves the value of the
-// attribute before the call (see [slog.Value.Resolve]).  If the AttrMapper returns
-// a zero Attr, the handler discards the attribute.
+// AttrMapper rewrites each non-group attribute before the handler logs the
+// attribute.  The handler resolves the value of the attribute before the
+// call (see [slog.Value.Resolve]).  If the AttrMapper returns a zero Attr,
+// the handler discards the attribute.
 //
 // The handler passes the built-in attribute with key "message" to this
 // function.

@@ -31,8 +31,8 @@ import (
 //nolint:gochecknoglobals
 var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NULL_VALUE}}
 
-// The handler calls a Mapper to rewrite each non-group attribute before the
-// handler logs the attribute.
+// Mapper rewrites each non-group attribute before the handler logs the
+// attribute.
 type Mapper func(groups []string, attr slog.Attr) slog.Attr
 
 // WrapAttrMapper wraps a mapper with checks for empty groups.  The wrapper
@@ -151,6 +151,7 @@ func NewNilValue() *spb.Value {
 
 // These types hold a spb.Value and its Kind in one object.  The Kind field
 // of the value points into the same object.
+
 type stringValue struct {
 	value spb.Value
 	kind  spb.Value_StringValue
