@@ -122,6 +122,39 @@ func TestStdoutHandler_reservedKeysAreDropped(t *testing.T) {
 	assert.Equal(t, 1.0, got["kept"])
 }
 
+func TestStdoutHandler_messageKeyIsNotDuplicated(t *testing.T) {
+	var buf bytes.Buffer
+
+	slog.New(gslog.NewStdoutHandler(&buf)).With("message", "fromWith").Info("hello", "message", "fromRecord")
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"message":`))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "hello", got["message"])
+}
+
+func TestStdoutHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
+	var buf bytes.Buffer
+
+	rename := func(_ []string, a slog.Attr) slog.Attr {
+		if a.Key == gslog.MessageKey {
+			return slog.String("severity", a.Value.String())
+		}
+
+		return a
+	}
+
+	slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(rename))).Info("hello")
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"severity":`))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "INFO", got["severity"])
+	assert.NotContains(t, got, "message")
+}
+
 func TestStdoutHandler_zeroTimeHasNoTimestamp(t *testing.T) {
 	var buf bytes.Buffer
 

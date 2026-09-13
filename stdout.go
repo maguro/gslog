@@ -62,7 +62,7 @@ const (
 // Cloud logging agent reads.
 //
 // A top-level attribute with the same key as a field that the agent reads,
-// such as "severity", is not written.
+// such as "severity" or "message", is not written.
 type StdoutHandler struct {
 	out   *lineWriter
 	level slog.Leveler
@@ -220,7 +220,8 @@ func (h *StdoutHandler) appendHeader(w *jsonWriter, entry *logging.Entry, record
 		message = h.replaceAttr(nil, message)
 	}
 
-	h.appendAttr(w, message, false)
+	// The handler does not write a renamed message with a key that the agent reads.
+	h.appendAttr(w, message, message.Key != MessageKey)
 
 	if !entry.Timestamp.IsZero() {
 		w.key(agentTimestampKey)
@@ -462,7 +463,7 @@ func hasPayloadField(s *spb.Struct, skip string) bool {
 // isAgentKey reports whether the agent reads the key.
 func isAgentKey(key string) bool {
 	switch key {
-	case agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
+	case MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
 		agentSpanIDKey, agentTraceKey, agentTraceSampledKey:
 		return true
 	default:
