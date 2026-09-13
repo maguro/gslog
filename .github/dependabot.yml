@@ -16,3 +16,15 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
