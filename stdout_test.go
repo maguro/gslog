@@ -155,6 +155,19 @@ func TestStdoutHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
 	assert.NotContains(t, got, "message")
 }
 
+func TestStdoutHandler_noPCHasNoSourceLocation(t *testing.T) {
+	var buf bytes.Buffer
+
+	h := gslog.NewStdoutHandler(&buf, gslog.WithSourceAdded())
+	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+
+	require.NoError(t, h.Handle(context.Background(), record))
+
+	got := decodeLine(t, &buf)
+
+	assert.NotContains(t, got, "logging.googleapis.com/sourceLocation")
+}
+
 func TestStdoutHandler_zeroTimeHasNoTimestamp(t *testing.T) {
 	var buf bytes.Buffer
 

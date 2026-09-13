@@ -1140,6 +1140,17 @@ func TestJSONAndTextHandlers(t *testing.T) {
 	}
 }
 
+// A record with no program counter gets no source location.
+func TestWithSourceAdded_noPC(t *testing.T) {
+	got := &Got{}
+	h := gslog.NewGcpHandler(got, gslog.WithSourceAdded())
+
+	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+
+	assert.NoError(t, h.Handle(context.Background(), record))
+	assert.Nil(t, got.LogEntry.SourceLocation)
+}
+
 func TestWithLeveler(t *testing.T) {
 	got := &Got{}
 	h := gslog.NewGcpHandler(got, gslog.WithLogLeveler(slog.LevelInfo))

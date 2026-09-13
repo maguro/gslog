@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"runtime"
 	"slices"
 
 	"cloud.google.com/go/logging"
@@ -246,14 +245,19 @@ func (h *GcpHandler) clone() *GcpHandler {
 	}
 }
 
+// addSourceLocation sets the source location of the entry from the record.
+// If the record has no program counter, the function does not set the
+// source location.
 func addSourceLocation(e *logging.Entry, r *slog.Record) {
-	fs := runtime.CallersFrames([]uintptr{r.PC})
-	f, _ := fs.Next()
+	src := r.Source()
+	if src == nil {
+		return
+	}
 
 	e.SourceLocation = &logpb.LogEntrySourceLocation{
-		File:     f.File,
-		Line:     int64(f.Line),
-		Function: f.Function,
+		File:     src.File,
+		Line:     int64(src.Line),
+		Function: src.Function,
 	}
 }
 
