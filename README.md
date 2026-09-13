@@ -116,15 +116,19 @@ There are several ways to map the `slog.Record` to a GCL entry,
 
 - a JSON string
 - a value that can be marshaled to a JSON object, like a `map[string]interface{}` or a `struct`
+- a `json.RawMessage`
+- a Protobuf `*structpb.Struct`
 - a Protobuf `*anypb.Any`
 
 The pros and cons are
 
-| Payload type                                 | pros                                              | cons                                                    |
-|----------------------------------------------|---------------------------------------------------|---------------------------------------------------------|
-| JSON string                                  | fast and efficient to generate on the `slog` side | GCL logs it as a flat, unstructured `textPayload`       |
-| value that can be marshaled to a JSON object | GCL logs it as a structured `jsonPayload`         | the marshalling effort is complicated and not amortized |
-| Protobuf `*anypb.Any`                        | not known at the moment                           | not known at the moment                                 |
+| Payload type                                 | pros                                                           | cons                                                                          |
+|----------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------------------|
+| JSON string                                  | fast and efficient to generate on the `slog` side              | GCL logs it as a flat, unstructured `textPayload`                             |
+| value that can be marshaled to a JSON object | GCL logs it as a structured `jsonPayload`                      | the marshalling effort is complicated and not amortized                       |
+| `json.RawMessage`                            | GCL logs it as a structured `jsonPayload` with no marshal step | the GCL logger unmarshals it and builds a `structpb.Struct` for every message |
+| Protobuf `*structpb.Struct`                  | GCL logs it as a structured `jsonPayload` with no conversion   | the `slog` side must build the `structpb.Struct`                              |
+| Protobuf `*anypb.Any`                        | GCL logs it as a typed `protoPayload` with no conversion       | the message type must be registered, and `RedirectAsJSON` rejects it          |
 
 A JSON string can be marshaled to a JSON object. But the GCL client only
 examines the Go type of the value and treats the string as a flat text message.
@@ -136,6 +140,6 @@ an equivalent `structpb.Struct` Protobuf message. The GCL logger does this
 marshalling and translation again for every message that it logs.
 
 The handler sets the `Payload` field of `logging.Entry` to a Protobuf
-`structpb.Struct`, although the end result is a `jsonPayload` GCL logging
-entry. The handler does this because `Logger.Log(e)` does the same conversion
-internally.
+`structpb.Struct`. `Logger.Log(e)` uses a `structpb.Struct` as is and does no
+conversion. A `structpb.Struct` is the only `jsonPayload` type that the GCL
+logger accepts without work on every message.
