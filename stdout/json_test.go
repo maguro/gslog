@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog
+package stdout
 
 import (
 	"encoding/json"
 	"math"
 	"testing"
 
-	"cloud.google.com/go/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	spb "google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestAppendString(t *testing.T) {
@@ -64,38 +62,4 @@ func TestAppendNumber(t *testing.T) {
 	assert.Equal(t, `"NaN"`, string(appendNumber(nil, math.NaN())))
 	assert.Equal(t, `"Infinity"`, string(appendNumber(nil, math.Inf(1))))
 	assert.Equal(t, `"-Infinity"`, string(appendNumber(nil, math.Inf(-1))))
-}
-
-func TestAppendValue(t *testing.T) {
-	list, err := spb.NewList([]any{1.0, "two", true, nil})
-	require.NoError(t, err)
-
-	inner, err := spb.NewStruct(map[string]any{"b": 2.0, "a": "one"})
-	require.NoError(t, err)
-
-	tests := map[string]struct {
-		value *spb.Value
-		want  string
-	}{
-		"nil":    {nil, "null"},
-		"null":   {spb.NewNullValue(), "null"},
-		"number": {spb.NewNumberValue(7), "7"},
-		"string": {spb.NewStringValue("s"), `"s"`},
-		"bool":   {spb.NewBoolValue(false), "false"},
-		"list":   {spb.NewListValue(list), `[1,"two",true,null]`},
-		"struct": {spb.NewStructValue(inner), `{"a":"one","b":2}`},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, tc.want, string(appendValue(nil, tc.value)))
-		})
-	}
-}
-
-func TestSeverityName(t *testing.T) {
-	assert.Equal(t, "DEFAULT", severityName(logging.Default))
-	assert.Equal(t, "INFO", severityName(logging.Info))
-	assert.Equal(t, "EMERGENCY", severityName(logging.Emergency))
-	assert.Equal(t, "250", severityName(logging.Severity(250)))
 }

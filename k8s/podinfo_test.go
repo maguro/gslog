@@ -17,11 +17,11 @@ package k8s_test
 import (
 	"context"
 
-	"cloud.google.com/go/logging"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 	"m4o.io/gslog/k8s"
 )
@@ -47,9 +47,9 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 
 		It("the labels are loaded and properly prefixed",
 			func() {
-				e := &logging.Entry{}
+				e := &entry.Entry{}
 				for _, a := range o.EntryAugmentors {
-					a(ctx, e, nil)
+					a(ctx, e)
 				}
 
 				Ω(e.Labels).Should(MatchAllKeys(Keys{
@@ -68,9 +68,9 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 
 		It("no error occurs and no labels are loaded",
 			func() {
-				e := &logging.Entry{}
+				e := &entry.Entry{}
 				for _, a := range o.EntryAugmentors {
-					a(ctx, e, nil)
+					a(ctx, e)
 				}
 
 				Ω(e.Labels).Should(BeEmpty())
@@ -84,9 +84,9 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 
 		It("the label is loaded with an empty value",
 			func() {
-				e := &logging.Entry{}
+				e := &entry.Entry{}
 				for _, a := range o.EntryAugmentors {
-					a(ctx, e, nil)
+					a(ctx, e)
 				}
 
 				Ω(e.Labels).Should(MatchAllKeys(Keys{
@@ -103,9 +103,9 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 
 		It("no error occurs and no labels are loaded",
 			func() {
-				e := &logging.Entry{}
+				e := &entry.Entry{}
 				for _, a := range o.EntryAugmentors {
-					a(ctx, e, nil)
+					a(ctx, e)
 				}
 
 				Ω(e.Labels).Should(BeEmpty())

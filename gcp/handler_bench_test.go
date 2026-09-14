@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package gcp_test
 
 import (
 	"context"
@@ -22,7 +22,8 @@ import (
 
 	"cloud.google.com/go/logging"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/gcp"
 )
 
 type noopLogger struct{}
@@ -38,7 +39,7 @@ func (noopLogger) Flush() error {
 }
 
 func BenchmarkHandleThreeAttrs(b *testing.B) {
-	h := gslog.NewGcpHandler(noopLogger{}, gslog.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(noopLogger{}, core.WithLogLeveler(slog.LevelInfo))
 	ctx := context.Background()
 
 	b.ReportAllocs()

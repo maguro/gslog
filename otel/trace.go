@@ -19,33 +19,34 @@ import (
 	"encoding/hex"
 	"strings"
 
-	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/trace"
 
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
 
 // WithOtelTracing returns an option that causes the handler to include
 // OpenTelemetry tracing.  The handler gets the tracing information from the
 // trace.SpanContext in the context, if the context has one.
-func WithOtelTracing(projectID string) options.OptionProcessor {
+func WithOtelTracing(projectID string) core.Option {
 	tracePrefix := "projects/" + projectID + "/traces/"
 
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors,
-			func(ctx context.Context, entry *logging.Entry, _ []string) {
+			func(ctx context.Context, e *entry.Entry) {
 				spanContext := trace.SpanContextFromContext(ctx)
 
 				if spanContext.HasTraceID() {
-					entry.Trace = traceName(tracePrefix, spanContext.TraceID())
+					e.Trace = traceName(tracePrefix, spanContext.TraceID())
 				}
 
 				if spanContext.HasSpanID() {
-					entry.SpanID = spanContext.SpanID().String()
+					e.SpanID = spanContext.SpanID().String()
 				}
 
 				if spanContext.IsSampled() {
-					entry.TraceSampled = true
+					e.TraceSampled = true
 				}
 			})
 	}

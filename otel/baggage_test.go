@@ -24,7 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/internal/attr"
 	"m4o.io/gslog/otel"
 )
@@ -111,7 +111,7 @@ func TestWithOtelBaggage(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := &Got{}
-			var h slog.Handler = gslog.NewGcpHandler(got, otel.WithOtelBaggage())
+			var h slog.Handler = gcp.NewHandler(got, otel.WithOtelBaggage())
 
 			for _, group := range test.groups {
 				h = h.WithGroup(group)

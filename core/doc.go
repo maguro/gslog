@@ -12,18 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package level_test
-
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestGo(t *testing.T) {
-	RegisterFailHandler(Fail)
-	suiteConfig, reporterConfig := GinkgoConfiguration()
-	reporterConfig.Verbose = true
-	RunSpecs(t, "Log level Suite", suiteConfig, reporterConfig)
-}
+// Package core contains the options, labels, and levels that all gslog
+// handlers share.  The package and its dependencies import no module outside
+// the standard library.
+package core

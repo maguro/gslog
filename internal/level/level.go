@@ -12,13 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package level contains code that maps slog.Level levels to logging.Severity.
+// Package level contains code that maps slog.Level levels to Cloud Logging
+// severities.
 package level
 
 import (
 	"log/slog"
+	"strconv"
+)
 
-	"cloud.google.com/go/logging"
+// Severity is a Cloud Logging severity.  The values are the values of the
+// LogSeverity enum of the Cloud Logging API.
+type Severity int
+
+// The Cloud Logging severities.
+const (
+	Default   Severity = 0
+	Debug     Severity = 100
+	Info      Severity = 200
+	Notice    Severity = 300
+	Warning   Severity = 400
+	Error     Severity = 500
+	Critical  Severity = 600
+	Alert     Severity = 700
+	Emergency Severity = 800
+)
+
+// The levels that Cloud Logging has and slog does not.
+const (
+	// LevelNotice means normal but significant events, such as start up,
+	// shut down, or configuration.
+	LevelNotice = slog.Level(2)
+	// LevelCritical means events that cause more severe problems or brief
+	// outages.
+	LevelCritical = slog.Level(12)
+	// LevelAlert means a person must take an action immediately.
+	LevelAlert = slog.Level(16)
+	// LevelEmergency means one or more systems are unusable.
+	LevelEmergency = slog.Level(20)
 )
 
 const (
@@ -30,18 +61,45 @@ const (
 // ToSeverity clamps a level to the range lowestLevel to highestLevel.
 const (
 	lowestLevel  = slog.Level(-severityIntercept)
-	highestLevel = slog.Level(20)
+	highestLevel = LevelEmergency
 )
 
-// ToSeverity converts slog.Level logging levels to logging.Severity.  The
-// result is in the range logging.Default to logging.Emergency.
-func ToSeverity(level slog.Level) logging.Severity {
+// ToSeverity converts a slog.Level to a Severity.  The result is in the
+// range Default to Emergency.
+func ToSeverity(level slog.Level) Severity {
 	level = min(max(level, lowestLevel), highestLevel)
 
-	severity := logging.Severity((int(level) + severityIntercept) / severitySlope * severityIncrement)
+	severity := Severity((int(level) + severityIntercept) / severitySlope * severityIncrement)
 	if slog.LevelInfo < level {
 		return severity + severityIncrement
 	}
 
 	return severity
+}
+
+// String returns the name of the severity as the Cloud Logging API spells
+// it.  An unknown severity is its number.
+func (s Severity) String() string {
+	switch s {
+	case Default:
+		return "DEFAULT"
+	case Debug:
+		return "DEBUG"
+	case Info:
+		return "INFO"
+	case Notice:
+		return "NOTICE"
+	case Warning:
+		return "WARNING"
+	case Error:
+		return "ERROR"
+	case Critical:
+		return "CRITICAL"
+	case Alert:
+		return "ALERT"
+	case Emergency:
+		return "EMERGENCY"
+	default:
+		return strconv.Itoa(int(s))
+	}
 }

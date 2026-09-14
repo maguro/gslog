@@ -20,23 +20,15 @@ The Options struct is in this internal package to limit access to it.
 package options
 
 import (
-	"context"
 	"log/slog"
 	"math"
 
-	"cloud.google.com/go/logging"
+	"m4o.io/gslog/internal/entry"
 )
 
 const (
 	levelUnknown = slog.Level(math.MaxInt)
 )
-
-// EntryAugmentor augments an instance of logging.Entry.  The handler supplies
-// the current context and group path for the augmentor to use.
-//
-// The entry payload shares values with the handler.  Add new fields to the
-// payload.  Do not modify a value that is already in the payload.
-type EntryAugmentor func(ctx context.Context, e *logging.Entry, groups []string)
 
 // Options holds the information necessary to construct an instance of
 // GcpHandler.
@@ -45,7 +37,7 @@ type Options struct {
 	EnvVarLogLevel   slog.Level
 	DefaultLogLevel  slog.Leveler
 
-	EntryAugmentors []EntryAugmentor
+	EntryAugmentors []entry.Augmentor
 
 	// AddSource causes the handler to compute the source code position
 	// of the log statement.  The handler sets the position in the

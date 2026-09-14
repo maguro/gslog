@@ -16,12 +16,14 @@ package otel
 
 import (
 	"context"
+	"log/slog"
+	"slices"
+	"strings"
 
-	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/baggage"
-	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/internal/attr"
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
 
@@ -45,8 +47,13 @@ const (
 // "properties" holds the properties of the member as a slog.Group.  The
 // handler maps a property that has no value to slog.Any with a nil value.
 //
+// The handler adds the baggage attributes in key order, after the
+// attributes of the log call, and passes each one to the AttrMapper.
+//
 // The handler or the logging record can already have an attribute with the
-// same key as a baggage attribute.  The baggage attribute has precedence.
+// same key as a baggage attribute.  The gcp handler replaces that attribute
+// with the baggage attribute.  The stdout handler writes the baggage
+// attribute after that attribute.
 //
 // For example, "a=one,b=two;p1;p2=val2" maps to
 //
@@ -58,7 +65,7 @@ const (
 //			slog.String("p2", "val2"),
 //		),
 //	)
-func WithOtelBaggage() options.OptionProcessor {
+func WithOtelBaggage() core.Option {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, addBaggage)
 	}
@@ -75,96 +82,73 @@ func MustParse(bStr string) baggage.Baggage {
 	return bag
 }
 
-func addBaggage(ctx context.Context, entry *logging.Entry, groups []string) {
+// addBaggage appends one attribute per baggage member to the entry, in key
+// order.
+func addBaggage(ctx context.Context, e *entry.Entry) {
 	bag := baggage.FromContext(ctx)
 
 	members := bag.Members()
-	if len(members) == 0 {
-		return
-	}
+	slices.SortFunc(members, compareKeys)
 
-	c := currentGroup(entry, groups)
+	e.Attrs = slices.Grow(e.Attrs, len(members))
 
 	for _, m := range members {
-		c.Fields[OtelBaggageKey+m.Key()] = baggageToGroup(m)
+		e.Attrs = append(e.Attrs, baggageAttr(m))
 	}
 }
 
-func currentGroup(entry *logging.Entry, groups []string) *spb.Struct {
-	//nolint:forcetypeassert
-	payload := entry.Payload.(*spb.Struct)
-
-	for _, group := range groups {
-		value, ok := payload.GetFields()[group]
-		if !ok {
-			value = &spb.Value{
-				Kind: &spb.Value_StructValue{
-					StructValue: &spb.Struct{
-						Fields: make(map[string]*spb.Value),
-					},
-				},
-			}
-
-			payload.Fields[group] = value
-		}
-
-		payload = value.GetStructValue()
-	}
-
-	return payload
+// keyed is a baggage member or a baggage property.
+type keyed interface {
+	Key() string
 }
 
-func baggageToGroup(member baggage.Member) *spb.Value {
+// compareKeys orders two baggage members or properties by key.
+func compareKeys[T keyed](a, b T) int {
+	return strings.Compare(a.Key(), b.Key())
+}
+
+// baggageAttr maps a baggage member to a slog.Attr.  The properties are in
+// key order.  A property replaces an earlier property with the same key.
+func baggageAttr(member baggage.Member) slog.Attr {
+	key := OtelBaggageKey + member.Key()
+
 	props := member.Properties()
 	if len(props) == 0 {
-		return &spb.Value{
-			Kind: &spb.Value_StringValue{
-				StringValue: member.Value(),
-			},
-		}
+		return slog.String(key, member.Value())
 	}
 
-	fields := make(map[string]*spb.Value)
-	group := &spb.Value{
-		Kind: &spb.Value_StructValue{
-			StructValue: &spb.Struct{
-				Fields: fields,
-			},
-		},
-	}
+	slices.SortStableFunc(props, compareKeys)
 
-	fields["value"] = &spb.Value{
-		Kind: &spb.Value_StringValue{
-			StringValue: member.Value(),
-		},
-	}
-
-	properties := make(map[string]*spb.Value, len(props))
+	properties := make([]slog.Attr, 0, len(props))
 
 	for _, prop := range props {
-		var value *spb.Value
+		a := propertyAttr(prop)
 
-		val, has := prop.Value()
-		if !has {
-			value = attr.NewNilValue()
-		} else {
-			value = &spb.Value{
-				Kind: &spb.Value_StringValue{
-					StringValue: val,
-				},
-			}
+		if n := len(properties); n > 0 && properties[n-1].Key == a.Key {
+			properties[n-1] = a
+
+			continue
 		}
 
-		properties[prop.Key()] = value
+		properties = append(properties, a)
 	}
 
-	fields["properties"] = &spb.Value{
-		Kind: &spb.Value_StructValue{
-			StructValue: &spb.Struct{
-				Fields: properties,
-			},
-		},
+	return slog.Attr{
+		Key: key,
+		Value: slog.GroupValue(
+			slog.String("value", member.Value()),
+			slog.Attr{Key: "properties", Value: slog.GroupValue(properties...)},
+		),
+	}
+}
+
+// propertyAttr maps a baggage property to a slog.Attr.  A property with no
+// value maps to a nil value.
+func propertyAttr(prop baggage.Property) slog.Attr {
+	val, has := prop.Value()
+	if !has {
+		return slog.Any(prop.Key(), nil)
 	}
 
-	return group
+	return slog.String(prop.Key(), val)
 }

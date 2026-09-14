@@ -26,59 +26,12 @@ import (
 
 	"github.com/pkg/errors"
 	spb "google.golang.org/protobuf/types/known/structpb"
+
+	"m4o.io/gslog/internal/timefmt"
 )
 
 //nolint:gochecknoglobals
 var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NULL_VALUE}}
-
-// Mapper rewrites each non-group attribute before the handler logs the
-// attribute.
-type Mapper func(groups []string, attr slog.Attr) slog.Attr
-
-// WrapAttrMapper wraps a mapper with checks for empty groups.  The wrapper
-// elides an empty group.
-func WrapAttrMapper(mapper Mapper) Mapper {
-	if mapper == nil {
-		return nil
-	}
-
-	var wrapped Mapper
-
-	wrapped = func(groups []string, attr slog.Attr) slog.Attr {
-		attr.Value = attr.Value.Resolve()
-
-		if attr.Value.Kind() == slog.KindGroup {
-			var attrs []any
-
-			// Concurrent calls can share the backing array of groups.
-			path := make([]string, len(groups), len(groups)+1)
-			copy(path, groups)
-			path = append(path, attr.Key)
-
-			for _, ga := range attr.Value.Group() {
-				mapped := wrapped(path, ga)
-
-				// elide empty attributes
-				if mapped.Key == "" && mapped.Value.Any() == nil {
-					continue
-				}
-
-				attrs = append(attrs, mapped)
-			}
-
-			if len(attrs) == 0 {
-				//nolint:exhaustruct
-				return slog.Attr{}
-			}
-
-			return slog.Group(attr.Key, attrs...)
-		}
-
-		return mapper(groups, attr)
-	}
-
-	return wrapped
-}
 
 // DecorateWith adds the attribute to the Fields of the spb.Struct.  If
 // DecorateWith cannot map the attribute to a spb.Value, DecorateWith does
@@ -151,7 +104,6 @@ func NewNilValue() *spb.Value {
 
 // These types hold a spb.Value and its Kind in one object.  The Kind field
 // of the value points into the same object.
-
 type stringValue struct {
 	value spb.Value
 	kind  spb.Value_StringValue
@@ -216,6 +168,10 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 
 // NewAny creates the spb.Value equivalent of the supplied any instance.
 func NewAny(a any) (*spb.Value, bool) {
+	if a == nil {
+		return nilValue, true
+	}
+
 	// If the value is an error but not a json.Marshaler, return the error
 	// text.
 	_, jm := a.(json.Marshaler)
@@ -234,17 +190,15 @@ func NewAny(a any) (*spb.Value, bool) {
 
 // NewTimeValue creates the spb.Value equivalent of the supplied time.Time instance.
 func NewTimeValue(t time.Time) *spb.Value {
-	return NewStringValue(TimeToRFC3339InMs(t))
+	formatted := timefmt.RFC3339InMs(t)
+
+	return NewStringValue(formatted)
 }
 
 // AsJSON tries to convert the attribute a to a JSON object.  AsJSON then
 // maps that JSON object to a spb.Value.  AsJSON returns true for ok if the
 // conversion to JSON succeeds, and false if it does not.
 func AsJSON(a any) (*spb.Value, bool) {
-	if a == nil {
-		return nilValue, true
-	}
-
 	a, err := ToJSON(a)
 	if err != nil {
 		return nil, false
@@ -270,26 +224,4 @@ func ToJSON(a any) (any, error) {
 	_ = json.Unmarshal(buf.Bytes(), &result)
 
 	return result, nil
-}
-
-// TimeToRFC3339InMs formats an instance of time.Time in the RFC3339 layout
-// with millisecond resolution.  The function is optimized for speed.
-func TimeToRFC3339InMs(t time.Time) string {
-	// Format with time.RFC3339Nano because that format is highly optimized.
-	// Truncate the result to millisecond resolution.
-	const prefixLen = len("2006-01-02T15:04:05.000")
-
-	// That format trims trailing zeros.  Because of this, add 1/10
-	// millisecond to make sure that there are exactly 4 digits after the
-	// period.
-	const rounding = time.Millisecond / 10
-
-	var arr [len(time.RFC3339Nano)]byte
-
-	t = t.Truncate(time.Millisecond).Add(rounding)
-
-	buf := t.AppendFormat(arr[:0], time.RFC3339Nano)
-	buf = append(buf[:prefixLen], buf[prefixLen+1:]...) // drop the 4th digit
-
-	return string(buf)
 }

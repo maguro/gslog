@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package gcp_test
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"cloud.google.com/go/logging"
 	"go.opentelemetry.io/otel/baggage"
@@ -31,15 +30,16 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/otel"
 )
 
-// The example creates a gslog.GcpHandler with a GCP logging.Logger.  The
+// The example creates a gcp.Handler with a GCP logging.Logger.  The
 // handler maps each slog.Record to a logging.Entry.  The handler then passes
 // the entry to the Log() method of its logging.Logger.
-func ExampleNewGcpHandler() {
+func ExampleNewHandler() {
 	ctx := context.Background()
 	client, err := logging.NewClient(ctx, "my-project")
 	if err != nil {
@@ -50,7 +50,7 @@ func ExampleNewGcpHandler() {
 
 	lg.Flush()
 
-	h := gslog.NewGcpHandler(lg)
+	h := gcp.NewHandler(lg)
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -101,7 +101,7 @@ type User struct {
 	Manager   *Manager `json:"manager"`
 }
 
-// PrintJsonPayload is a gslog.Logger stub that prints the logging.Entry
+// PrintJsonPayload is a gcp.Logger stub that prints the logging.Entry
 // Payload field as a JSON string.
 func PrintJsonPayload(e logging.Entry) {
 	b, _ := protojson.Marshal(e.Payload.(*spb.Struct))
@@ -112,11 +112,11 @@ func PrintJsonPayload(e logging.Entry) {
 	fmt.Println(string(b))
 }
 
-// The gslog.GcpHandler maps the slog.Record and the nested group attributes
+// The gcp.Handler maps the slog.Record and the nested group attributes
 // of the handler into a JSON object.  The message is at the root of the
 // object with the key "message".
-func ExampleGcpHandler_Handle_payloadMapping() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload))
+func ExampleHandler_Handle_payloadMapping() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload))
 	l := slog.New(h)
 	l = l.WithGroup("pub")
 	l = l.With(slog.Any("user", u))
@@ -126,7 +126,7 @@ func ExampleGcpHandler_Handle_payloadMapping() {
 	// Output: {"message":"How now brown cow?","pub":{"user":{"age":32,"email":"jan@example.com","engineer":true,"first_name":"Jan","height":5.91,"id":"user-12234","last_name":"Doe","manager":null,"password":"\u003csecret\u003e"}}}
 }
 
-// PrintLabels is a gslog.Logger stub that prints the logging.Entry's
+// PrintLabels is a gcp.Logger stub that prints the logging.Entry's
 // Labels field.
 func PrintLabels(e logging.Entry) {
 	keys := make([]string, 0)
@@ -146,46 +146,46 @@ func PrintLabels(e logging.Entry) {
 	fmt.Println(sb.String())
 }
 
-// The gslog.GcpHandler adds the labels in the context to the Labels field of
+// The gcp.Handler adds the labels in the context to the Labels field of
 // the logging.Entry.
-func ExampleGcpHandler_Handle_withLabels() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintLabels))
+func ExampleHandler_Handle_withLabels() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintLabels))
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
+	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
 
 	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
 
 	// Output: a=one, b=two
 }
 
-// With the k8s.WithPodinfoLabels() option, gslog.GcpHandler adds labels from
+// With the k8s.WithPodinfoLabels() option, gcp.Handler adds labels from
 // the configured Kubernetes Downward API podinfo labels file to the Labels
 // field of the logging.Entry.
 //
 // The handler adds the prefix "k8s-pod/" to each label.  This follows the
 // Google Cloud Logging conventions for Kubernetes Pod labels.
-func ExampleNewGcpHandler_withK8sPodinfo() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintLabels), k8s.WithPodinfoLabels("k8s/testdata/etc/podinfo"))
+func ExampleNewHandler_withK8sPodinfo() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintLabels), k8s.WithPodinfoLabels("../k8s/testdata/etc/podinfo"))
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
+	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
 
-	l.Log(ctx, gslog.LevelCritical, "Danger, Will Robinson!")
+	l.Log(ctx, core.LevelCritical, "Danger, Will Robinson!")
 
 	// Output: a=one, b=two, k8s-pod/app=hello-world, k8s-pod/environment=stg, k8s-pod/tier=backend, k8s-pod/track=stable
 }
 
-// With the otel.WithOtelBaggage() option, gslog.GcpHandler adds the
+// With the otel.WithOtelBaggage() option, gcp.Handler adds the
 // baggage.Baggage in the context as attributes.
 //
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  A baggage
 // attribute has precedence over an attribute that already has the same key.
-func ExampleNewGcpHandler_withOpentelemetryBaggage() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
+func ExampleNewHandler_withOpentelemetryBaggage() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
 	l := slog.New(h)
 
 	ctx := context.Background()
@@ -196,7 +196,7 @@ func ExampleNewGcpHandler_withOpentelemetryBaggage() {
 	// Output: {"message":"How now brown cow?","otel-baggage/a":"one","otel-baggage/b":{"properties":{"p1":null,"p2":"val2"},"value":"two"}}
 }
 
-// PrintTracing is a gslog.Logger stub that prints the logging.Entry's
+// PrintTracing is a gcp.Logger stub that prints the logging.Entry's
 // tracing fields.
 func PrintTracing(e logging.Entry) {
 	var sb strings.Builder
@@ -215,11 +215,11 @@ func PrintTracing(e logging.Entry) {
 	fmt.Println(sb.String())
 }
 
-// With the otel.WithOtelTracing() option, gslog.GcpHandler adds the
+// With the otel.WithOtelTracing() option, gcp.Handler adds the
 // OpenTelemetry trace.SpanContext information in the context to the tracing
 // fields of the logging.Entry.
-func ExampleNewGcpHandler_withOpentelemetryTrace() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
+func ExampleNewHandler_withOpentelemetryTrace() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
 	l := slog.New(h)
 
 	traceId, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
@@ -237,11 +237,11 @@ func ExampleNewGcpHandler_withOpentelemetryTrace() {
 	// Output: trace: projects/my-project/traces/52fc1643a9381fc674742bb0067101e7 span: d3e9e8c51cb190df flags: 01
 }
 
-// PrintSourceLocation is a gslog.Logger stub that prints the logging.Entry's
+// PrintSourceLocation is a gcp.Logger stub that prints the logging.Entry's
 // SourceLocation field.
 func PrintSourceLocation(e logging.Entry) {
 	sl := e.SourceLocation
-	sl.File = sl.File[len(sl.File)-len("gslog/example_test.go"):]
+	sl.File = sl.File[len(sl.File)-len("gcp/example_test.go"):]
 
 	b, _ := protojson.Marshal(sl)
 	// Do another JSON round-trip, because protojson randomizes its output.
@@ -251,19 +251,19 @@ func PrintSourceLocation(e logging.Entry) {
 	fmt.Println(string(b))
 }
 
-// With the gslog.WithSourceAdded() option, gslog.GcpHandler adds the
+// With the core.WithSourceAdded() option, gcp.Handler adds the
 // SourceLocation field to the logging.Entry.  This field is expensive to
 // compute.
-func ExampleNewGcpHandler_withSourceAdded() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintSourceLocation), gslog.WithSourceAdded())
+func ExampleNewHandler_withSourceAdded() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintSourceLocation), core.WithSourceAdded())
 	l := slog.New(h)
 
-	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
+	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gslog/example_test.go","function":"m4o.io/gslog_test.ExampleNewGcpHandler_withSourceAdded","line":"261"}
+	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"261"}
 }
 
-// RemovePassword is a gslog.AttrMapper that elides password attributes.
+// RemovePassword is a core.AttrMapper that elides password attributes.
 func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == "password" {
 		return slog.Attr{}
@@ -271,11 +271,11 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-// With the gslog.WithReplaceAttr() option, gslog.GcpHandler applies the
-// supplied gslog.AttrMapper to each non-group attribute before the handler
+// With the core.WithReplaceAttr() option, gcp.Handler applies the
+// supplied core.AttrMapper to each non-group attribute before the handler
 // logs the attribute.
-func ExampleNewGcpHandler_withReplaceAttr() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), gslog.WithReplaceAttr(RemovePassword))
+func ExampleNewHandler_withReplaceAttr() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithReplaceAttr(RemovePassword))
 	l := slog.New(h)
 	l = l.WithGroup("pub")
 	l = l.With(slog.String("username", "user-12234"), slog.String("password", string(pw)))
@@ -285,10 +285,10 @@ func ExampleNewGcpHandler_withReplaceAttr() {
 	// Output: {"message":"How now brown cow?","pub":{"username":"user-12234"}}
 }
 
-// With the gslog.WithLogLeveler() option, gslog.GcpHandler uses the
+// With the core.WithLogLeveler() option, gcp.Handler uses the
 // slog.Leveler to decide whether a log level is enabled.
-func ExampleNewGcpHandler_withLogLeveler() {
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), gslog.WithLogLeveler(slog.LevelError))
+func ExampleNewHandler_withLogLeveler() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLeveler(slog.LevelError))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -297,16 +297,16 @@ func ExampleNewGcpHandler_withLogLeveler() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// With the gslog.WithLogLevelFromEnvVar() option, gslog.GcpHandler reads its
+// With the core.WithLogLevelFromEnvVar() option, gcp.Handler reads its
 // log level from the environment variable that the key names.
-func ExampleNewGcpHandler_withLogLevelFromEnvVar() {
+func ExampleNewHandler_withLogLevelFromEnvVar() {
 	const envVar = "FOO_LOG_LEVEL"
 	_ = os.Setenv(envVar, "ERROR")
 	defer func() {
 		_ = os.Unsetenv(envVar)
 	}()
 
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(PrintJsonPayload), gslog.WithLogLevelFromEnvVar(envVar))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLevelFromEnvVar(envVar))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -315,14 +315,14 @@ func ExampleNewGcpHandler_withLogLevelFromEnvVar() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// The gslog.WithDefaultLogLeveler() option sets a default log level.
-func ExampleNewGcpHandler_withDefaultLogLeveler() {
+// The core.WithDefaultLogLeveler() option sets a default log level.
+func ExampleNewHandler_withDefaultLogLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 
-	h := gslog.NewGcpHandler(
-		gslog.LoggerFunc(PrintJsonPayload),
-		gslog.WithLogLevelFromEnvVar(envVar),
-		gslog.WithDefaultLogLeveler(slog.LevelError),
+	h := gcp.NewHandler(
+		gcp.LoggerFunc(PrintJsonPayload),
+		core.WithLogLevelFromEnvVar(envVar),
+		core.WithDefaultLogLeveler(slog.LevelError),
 	)
 	l := slog.New(h)
 
@@ -330,17 +330,4 @@ func ExampleNewGcpHandler_withDefaultLogLeveler() {
 	l.Error("The rain in Spain lies mainly on the plane.")
 
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
-}
-
-// NewStdoutHandler writes each entry to the writer as one line of JSON in
-// the format that the Google Cloud logging agent reads.
-func ExampleNewStdoutHandler() {
-	h := gslog.NewStdoutHandler(os.Stdout)
-
-	r := slog.NewRecord(time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC), slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(slog.String("animal", "cow"))
-
-	_ = h.Handle(context.Background(), r)
-
-	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","animal":"cow"}
 }

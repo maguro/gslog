@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package stdout_test
 
 import (
 	"bytes"
@@ -29,8 +29,10 @@ import (
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/testhelp"
 	"m4o.io/gslog/otel"
+	"m4o.io/gslog/stdout"
 )
 
 type failingWriter struct{}
@@ -53,10 +55,10 @@ func decodeLine(t *testing.T, buf *bytes.Buffer) map[string]any {
 	return decoded
 }
 
-func TestStdoutHandler_agentFields(t *testing.T) {
+func TestHandler_agentFields(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := gslog.NewStdoutHandler(&buf, gslog.WithSourceAdded(), otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(&buf, core.WithSourceAdded(), otel.WithOtelTracing("my-project"))
 
 	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{0x52, 0xfc, 0x16, 0x43, 0xa9, 0x38, 0x1f, 0xc6, 0x74, 0x74, 0x2b, 0xb0, 0x06, 0x71, 0x01, 0xe7},
@@ -64,9 +66,9 @@ func TestStdoutHandler_agentFields(t *testing.T) {
 		TraceFlags: trace.FlagsSampled,
 	})
 	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
-	ctx = gslog.WithLabels(ctx, gslog.Label("b", "two"), gslog.Label("a", "one"))
+	ctx = core.WithLabels(ctx, core.Label("b", "two"), core.Label("a", "one"))
 
-	record := slog.NewRecord(testTime, slog.LevelWarn, "How now brown cow?", callerPC(2))
+	record := slog.NewRecord(testhelp.Time, slog.LevelWarn, "How now brown cow?", testhelp.CallerPC(2))
 	record.AddAttrs(slog.Int("count", 3))
 
 	require.NoError(t, h.Handle(ctx, record))
@@ -84,15 +86,15 @@ func TestStdoutHandler_agentFields(t *testing.T) {
 
 	loc, ok := got["logging.googleapis.com/sourceLocation"].(map[string]any)
 	require.True(t, ok)
-	assert.Contains(t, loc["file"], "stdout_test.go")
-	assert.Contains(t, loc["function"], "TestStdoutHandler_agentFields")
+	assert.Contains(t, loc["file"], "stdout/handler_test.go")
+	assert.Contains(t, loc["function"], "TestHandler_agentFields")
 	assert.IsType(t, "", loc["line"])
 }
 
-func TestStdoutHandler_groups(t *testing.T) {
+func TestHandler_groups(t *testing.T) {
 	var buf bytes.Buffer
 
-	l := slog.New(gslog.NewStdoutHandler(&buf)).
+	l := slog.New(stdout.NewHandler(&buf)).
 		With("svc", "api").
 		WithGroup("req").With("id", "abc").
 		WithGroup("user")
@@ -110,10 +112,10 @@ func TestStdoutHandler_groups(t *testing.T) {
 	}, got["req"])
 }
 
-func TestStdoutHandler_reservedKeysAreDropped(t *testing.T) {
+func TestHandler_reservedKeysAreDropped(t *testing.T) {
 	var buf bytes.Buffer
 
-	slog.New(gslog.NewStdoutHandler(&buf)).Info("hello", "severity", "bogus", "timestamp", "bogus", "kept", 1)
+	slog.New(stdout.NewHandler(&buf)).Info("hello", "severity", "bogus", "timestamp", "bogus", "kept", 1)
 
 	got := decodeLine(t, &buf)
 
@@ -122,10 +124,25 @@ func TestStdoutHandler_reservedKeysAreDropped(t *testing.T) {
 	assert.Equal(t, 1.0, got["kept"])
 }
 
-func TestStdoutHandler_messageKeyIsNotDuplicated(t *testing.T) {
+// TestHandler_agentKeyGroupIsNotWritten verifies that a top-level group with
+// a key that the agent reads is not written.
+func TestHandler_agentKeyGroupIsNotWritten(t *testing.T) {
 	var buf bytes.Buffer
 
-	slog.New(gslog.NewStdoutHandler(&buf)).With("message", "fromWith").Info("hello", "message", "fromRecord")
+	slog.New(stdout.NewHandler(&buf)).With("top", 1).WithGroup("severity").Info("hello", "k", 1)
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"severity":`))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "INFO", got["severity"])
+	assert.Equal(t, 1.0, got["top"])
+}
+
+func TestHandler_messageKeyIsNotDuplicated(t *testing.T) {
+	var buf bytes.Buffer
+
+	slog.New(stdout.NewHandler(&buf)).With("message", "fromWith").Info("hello", "message", "fromRecord")
 
 	assert.Equal(t, 1, strings.Count(buf.String(), `"message":`))
 
@@ -134,18 +151,18 @@ func TestStdoutHandler_messageKeyIsNotDuplicated(t *testing.T) {
 	assert.Equal(t, "hello", got["message"])
 }
 
-func TestStdoutHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
+func TestHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
 	var buf bytes.Buffer
 
 	rename := func(_ []string, a slog.Attr) slog.Attr {
-		if a.Key == gslog.MessageKey {
+		if a.Key == core.MessageKey {
 			return slog.String("severity", a.Value.String())
 		}
 
 		return a
 	}
 
-	slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(rename))).Info("hello")
+	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(rename))).Info("hello")
 
 	assert.Equal(t, 1, strings.Count(buf.String(), `"severity":`))
 
@@ -155,11 +172,11 @@ func TestStdoutHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
 	assert.NotContains(t, got, "message")
 }
 
-func TestStdoutHandler_noPCHasNoSourceLocation(t *testing.T) {
+func TestHandler_noPCHasNoSourceLocation(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := gslog.NewStdoutHandler(&buf, gslog.WithSourceAdded())
-	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+	h := stdout.NewHandler(&buf, core.WithSourceAdded())
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
 	require.NoError(t, h.Handle(context.Background(), record))
 
@@ -168,10 +185,10 @@ func TestStdoutHandler_noPCHasNoSourceLocation(t *testing.T) {
 	assert.NotContains(t, got, "logging.googleapis.com/sourceLocation")
 }
 
-func TestStdoutHandler_zeroTimeHasNoTimestamp(t *testing.T) {
+func TestHandler_zeroTimeHasNoTimestamp(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := gslog.NewStdoutHandler(&buf)
+	h := stdout.NewHandler(&buf)
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
 
 	require.NoError(t, h.Handle(context.Background(), record))
@@ -181,18 +198,18 @@ func TestStdoutHandler_zeroTimeHasNoTimestamp(t *testing.T) {
 	assert.NotContains(t, got, "timestamp")
 }
 
-func TestStdoutHandler_writeError(t *testing.T) {
-	h := gslog.NewStdoutHandler(failingWriter{})
+func TestHandler_writeError(t *testing.T) {
+	h := stdout.NewHandler(failingWriter{})
 
-	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
 	assert.Error(t, h.Handle(context.Background(), record))
 }
 
-func TestStdoutHandler_siblingsDoNotShareAttrs(t *testing.T) {
+func TestHandler_siblingsDoNotShareAttrs(t *testing.T) {
 	var buf bytes.Buffer
 
-	parent := gslog.NewStdoutHandler(&buf)
+	parent := stdout.NewHandler(&buf)
 	first := slog.New(parent.WithAttrs([]slog.Attr{slog.String("a", "1")}))
 	second := slog.New(parent.WithAttrs([]slog.Attr{slog.String("b", "2")}))
 
@@ -215,10 +232,10 @@ func TestStdoutHandler_siblingsDoNotShareAttrs(t *testing.T) {
 	assert.NotContains(t, gotSecond, "a")
 }
 
-func TestStdoutHandler_emptyGroupsAreNotWritten(t *testing.T) {
+func TestHandler_emptyGroupsAreNotWritten(t *testing.T) {
 	var buf bytes.Buffer
 
-	slog.New(gslog.NewStdoutHandler(&buf)).With("svc", "api").WithGroup("req").WithGroup("user").Info("hello")
+	slog.New(stdout.NewHandler(&buf)).With("svc", "api").WithGroup("req").WithGroup("user").Info("hello")
 
 	got := decodeLine(t, &buf)
 
@@ -228,7 +245,7 @@ func TestStdoutHandler_emptyGroupsAreNotWritten(t *testing.T) {
 
 // When the mapper or the encoder elides every record attribute, the handler
 // does not write a group that has no other content.
-func TestStdoutHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
+func TestHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 	drop := func(_ []string, a slog.Attr) slog.Attr {
 		if a.Key == "password" {
 			return slog.Attr{}
@@ -271,7 +288,7 @@ func TestStdoutHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 
-			tc.log(slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(drop))))
+			tc.log(slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(drop))))
 
 			got := decodeLine(t, &buf)
 			delete(got, "severity")
@@ -283,13 +300,13 @@ func TestStdoutHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 	}
 }
 
-func TestStdoutHandler_baggageInGroup(t *testing.T) {
+func TestHandler_baggageInGroup(t *testing.T) {
 	var buf bytes.Buffer
 
 	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	slog.New(gslog.NewStdoutHandler(&buf, otel.WithOtelBaggage())).
+	slog.New(stdout.NewHandler(&buf, otel.WithOtelBaggage())).
 		WithGroup("req").With("id", "abc").
 		InfoContext(ctx, "hello", "n", 1)
 
@@ -303,7 +320,71 @@ func TestStdoutHandler_baggageInGroup(t *testing.T) {
 	}, got["req"])
 }
 
-func TestStdoutHandler_replaceAttr(t *testing.T) {
+// TestHandler_baggagePropertyKeysAreUnique verifies that a repeated property
+// key is written once, with the last value, in key order.
+func TestHandler_baggagePropertyKeysAreUnique(t *testing.T) {
+	var buf bytes.Buffer
+
+	bag := otel.MustParse("b=two;p2=v2;p1;p2=dup")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+	slog.New(stdout.NewHandler(&buf, otel.WithOtelBaggage())).InfoContext(ctx, "hello")
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"p2":`))
+	assert.Contains(t, buf.String(), `"properties":{"p1":null,"p2":"dup"}`)
+}
+
+// TestHandler_baggageGoesThroughReplaceAttr verifies that the mapper sees
+// each baggage attribute.
+func TestHandler_baggageGoesThroughReplaceAttr(t *testing.T) {
+	var buf bytes.Buffer
+
+	redact := func(_ []string, a slog.Attr) slog.Attr {
+		if strings.Contains(a.Key, "email") {
+			return slog.String(a.Key, "<redacted>")
+		}
+
+		return a
+	}
+
+	bag := otel.MustParse("email=jan@example.com")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(redact), otel.WithOtelBaggage())).InfoContext(ctx, "hello")
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, "<redacted>", got["otel-baggage/email"])
+}
+
+// TestHandler_baggageOrderIsStable verifies that the baggage attributes are
+// in key order on every line.
+func TestHandler_baggageOrderIsStable(t *testing.T) {
+	const lines = 20
+
+	var buf bytes.Buffer
+
+	bag := otel.MustParse("e=5,a=1,d=4,b=2,c=3")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+
+	h := stdout.NewHandler(&buf, otel.WithOtelBaggage())
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+
+	for range lines {
+		require.NoError(t, h.Handle(ctx, record))
+	}
+
+	got := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	require.Len(t, got, lines)
+
+	for _, line := range got {
+		assert.Equal(t, got[0], line)
+	}
+
+	assert.Contains(t, got[0], `"otel-baggage/a":"1","otel-baggage/b":"2","otel-baggage/c":"3","otel-baggage/d":"4","otel-baggage/e":"5"`)
+}
+
+func TestHandler_replaceAttr(t *testing.T) {
 	var buf bytes.Buffer
 
 	remove := func(groups []string, a slog.Attr) slog.Attr {
@@ -311,14 +392,14 @@ func TestStdoutHandler_replaceAttr(t *testing.T) {
 			return slog.Attr{}
 		}
 
-		if a.Key == gslog.MessageKey && len(groups) == 0 {
+		if a.Key == core.MessageKey && len(groups) == 0 {
 			return slog.String("msg", a.Value.String())
 		}
 
 		return a
 	}
 
-	slog.New(gslog.NewStdoutHandler(&buf, gslog.WithReplaceAttr(remove))).
+	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(remove))).
 		With("password", "x", "user", "jan").
 		Info("hello", "password", "y", "n", 1)
 
@@ -331,20 +412,20 @@ func TestStdoutHandler_replaceAttr(t *testing.T) {
 	assert.Equal(t, 1.0, got["n"])
 }
 
-func TestStdoutHandler_attrKinds(t *testing.T) {
+func TestHandler_attrKinds(t *testing.T) {
 	var buf bytes.Buffer
 
 	type point struct {
 		X, Y int
 	}
 
-	slog.New(gslog.NewStdoutHandler(&buf)).Info("kinds",
+	slog.New(stdout.NewHandler(&buf)).Info("kinds",
 		slog.Int("i", -3),
 		slog.Uint64("u", 7),
 		slog.Float64("f", 2.5),
 		slog.Bool("b", true),
 		slog.Duration("d", 1500*time.Millisecond),
-		slog.Time("t", testTime),
+		slog.Time("t", testhelp.Time),
 		slog.Any("err", errors.New("ouch")),
 		slog.Any("p", point{1, 2}),
 		slog.Any("nil", nil),
@@ -370,10 +451,10 @@ func TestStdoutHandler_attrKinds(t *testing.T) {
 	assert.NotContains(t, got, "empty")
 }
 
-func TestStdoutHandler_concurrentLinesDoNotInterleave(t *testing.T) {
+func TestHandler_concurrentLinesDoNotInterleave(t *testing.T) {
 	var buf bytes.Buffer
 
-	l := slog.New(gslog.NewStdoutHandler(&buf))
+	l := slog.New(stdout.NewHandler(&buf))
 
 	const (
 		goroutines = 8

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package core_test
 
 import (
 	"context"
@@ -22,10 +22,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
 )
 
-var _ = Describe("gslog labels", func() {
+var _ = Describe("core labels", func() {
 	var ctx context.Context
 	BeforeEach(func() {
 		ctx = context.Background()
@@ -34,21 +34,21 @@ var _ = Describe("gslog labels", func() {
 	When("context is initialized with bad labels", func() {
 		It("should panic", func() {
 			Ω(func() {
-				gslog.WithLabels(ctx, gslog.LabelPair{})
+				core.WithLabels(ctx, core.LabelPair{})
 			}).Should(PanicWith("invalid label passed to WithLabels()"))
 		})
 	})
 
 	When("context is initialized with several labels", func() {
 		BeforeEach(func() {
-			ctx = gslog.WithLabels(ctx,
-				gslog.Label("how", "now"),
-				gslog.Label("brown", "cow"),
+			ctx = core.WithLabels(ctx,
+				core.Label("how", "now"),
+				core.Label("brown", "cow"),
 			)
 		})
 
 		It("they can be extracted from the context", func() {
-			labels := gslog.ExtractLabels(ctx)
+			labels := core.ExtractLabels(ctx)
 
 			Ω(labels).Should(HaveLen(2))
 			Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -57,11 +57,11 @@ var _ = Describe("gslog labels", func() {
 
 		Context("and a label overridden", func() {
 			BeforeEach(func() {
-				ctx = gslog.WithLabels(ctx, gslog.Label("brown", "cat"))
+				ctx = core.WithLabels(ctx, core.Label("brown", "cat"))
 			})
 
 			It("the overrides can be extracted from the context", func() {
-				labels := gslog.ExtractLabels(ctx)
+				labels := core.ExtractLabels(ctx)
 
 				Ω(labels).Should(HaveLen(2))
 				Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -72,21 +72,21 @@ var _ = Describe("gslog labels", func() {
 
 	When("context is initialized with too many labels", func() {
 		BeforeEach(func() {
-			ctx = gslog.WithLabels(ctx,
-				gslog.Label("how", "now"),
-				gslog.Label("brown", "cow"),
+			ctx = core.WithLabels(ctx,
+				core.Label("how", "now"),
+				core.Label("brown", "cow"),
 			)
 			for i := 0; i < 64; i++ {
 				key := fmt.Sprintf("key_%06d", i)
 				value := fmt.Sprintf("val_%06d", i)
-				ctx = gslog.WithLabels(ctx,
-					gslog.Label(key, value),
+				ctx = core.WithLabels(ctx,
+					core.Label(key, value),
 				)
 			}
 		})
 
 		It("only 64 labels can be obtained from the context", func() {
-			labels := gslog.ExtractLabels(ctx)
+			labels := core.ExtractLabels(ctx)
 
 			Ω(labels).Should(HaveLen(64))
 			Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -121,7 +121,7 @@ func init() {
 		k := fmt.Sprintf("key_%06d", i)
 		v := fmt.Sprintf("overridden_%06d", i)
 
-		ctx = gslog.WithLabels(ctx, gslog.Label(k, v))
+		ctx = core.WithLabels(ctx, core.Label(k, v))
 		ctx = context.WithValue(ctx, mockKey{}, v)
 	}
 
@@ -129,11 +129,11 @@ func init() {
 		k := fmt.Sprintf("key_%06d", i)
 		v := fmt.Sprintf("val_%06d", i)
 
-		ctx = gslog.WithLabels(ctx, gslog.Label(k, v))
+		ctx = core.WithLabels(ctx, core.Label(k, v))
 		ctx = context.WithValue(ctx, mockKey{}, v)
 	}
 }
 
 func BenchmarkExtractLabels(b *testing.B) {
-	gslog.ExtractLabels(ctx)
+	core.ExtractLabels(ctx)
 }

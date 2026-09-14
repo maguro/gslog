@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package gcp_test
 
 import (
 	"context"
@@ -31,15 +31,17 @@ import (
 	"cloud.google.com/go/logging"
 	logpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/baggage"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/internal/attr"
 	"m4o.io/gslog/internal/options"
+	"m4o.io/gslog/internal/testhelp"
+	"m4o.io/gslog/otel"
 )
-
-var testTime = time.Date(2000, 1, 2, 3, 4, 5, 0, time.UTC)
 
 type replace struct {
 	v slog.Value
@@ -63,13 +65,6 @@ func (g *Got) LogSync(_ context.Context, e logging.Entry) error {
 
 func (g *Got) Flush() error {
 	return nil
-}
-
-// callerPC returns the program counter at the given stack depth.
-func callerPC(depth int) uintptr {
-	var pcs [1]uintptr
-	runtime.Callers(depth, pcs[:])
-	return pcs[0]
 }
 
 func TestDefaultHandle(t *testing.T) {
@@ -232,7 +227,7 @@ func TestDefaultHandle(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := &Got{}
-			var h slog.Handler = gslog.NewGcpHandler(got, gslog.WithDefaultLogLeveler(slog.LevelInfo))
+			var h slog.Handler = gcp.NewHandler(got, core.WithDefaultLogLeveler(slog.LevelInfo))
 			if test.with != nil {
 				h = test.with(h)
 			}
@@ -256,8 +251,8 @@ func TestConcurrentWrites(t *testing.T) {
 	var mu sync.Mutex
 	var s1Count int
 	var s2Count int
-	var h slog.Handler = gslog.NewGcpHandler(
-		gslog.LoggerFunc(func(e logging.Entry) {
+	var h slog.Handler = gcp.NewHandler(
+		gcp.LoggerFunc(func(e logging.Entry) {
 			mu.Lock()
 			defer mu.Unlock()
 
@@ -269,7 +264,7 @@ func TestConcurrentWrites(t *testing.T) {
 				s2Count++
 			}
 		}),
-		gslog.WithDefaultLogLeveler(slog.LevelInfo))
+		core.WithDefaultLogLeveler(slog.LevelInfo))
 
 	sub1 := h.WithAttrs([]slog.Attr{slog.Bool("sub1", true)})
 	sub2 := h.WithAttrs([]slog.Attr{slog.Bool("sub2", true)})
@@ -300,9 +295,8 @@ func TestConcurrentWrites(t *testing.T) {
 	assert.Equal(t, count, s2Count)
 }
 
-// TestConcurrentGroupMapper verifies the common parts of TextHandler and
-// JSONHandler.  Concurrent log calls with a group attribute must each see
-// their own group path in the mapper.
+// TestConcurrentGroupMapper verifies that concurrent log calls with a group
+// attribute each see their own group path in the mapper.
 func TestConcurrentGroupMapper(t *testing.T) {
 	const (
 		goroutines = 8
@@ -319,7 +313,7 @@ func TestConcurrentGroupMapper(t *testing.T) {
 		return a
 	}
 
-	h := gslog.NewGcpHandler(gslog.LoggerFunc(func(logging.Entry) {}), gslog.WithReplaceAttr(mapper))
+	h := gcp.NewHandler(gcp.LoggerFunc(func(logging.Entry) {}), core.WithReplaceAttr(mapper))
 	l := slog.New(h).WithGroup("a").WithGroup("b").WithGroup("c")
 
 	var wg sync.WaitGroup
@@ -338,6 +332,8 @@ func TestConcurrentGroupMapper(t *testing.T) {
 	assert.Zero(t, wrong.Load())
 }
 
+// TestJSONAndTextHandlers verifies the common parts of TextHandler and
+// JSONHandler.
 func TestJSONAndTextHandlers(t *testing.T) {
 	// remove all Attrs
 	removeAll := func(_ []string, a slog.Attr) slog.Attr { return slog.Attr{} }
@@ -365,7 +361,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -382,7 +378,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -399,7 +395,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -413,7 +409,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -433,7 +429,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -454,7 +450,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -470,14 +466,14 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
 		},
 		{
 			name:    "remove built-in",
-			replace: removeKeys(gslog.MessageKey),
+			replace: removeKeys(core.MessageKey),
 			attrs:   attrs,
 			want: func() logging.Entry {
 				p := &structpb.Struct{Fields: make(map[string]*structpb.Value)}
@@ -486,14 +482,14 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
 		},
 		{
 			name:    "preformatted remove built-in",
-			replace: removeKeys(gslog.MessageKey),
+			replace: removeKeys(core.MessageKey),
 			with:    func(h slog.Handler) slog.Handler { return h.WithAttrs(preAttrs) },
 			attrs:   attrs,
 			want: func() logging.Entry {
@@ -505,7 +501,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -533,7 +529,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -550,7 +546,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -569,7 +565,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -591,7 +587,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -615,7 +611,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -637,7 +633,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -656,7 +652,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -677,7 +673,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -708,7 +704,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -735,7 +731,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -752,7 +748,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -770,7 +766,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -787,7 +783,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -808,7 +804,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -824,7 +820,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -840,7 +836,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -856,7 +852,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -879,7 +875,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -895,9 +891,9 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				return removeKeys()(gs, a)
 			},
 			addSource: &logpb.LogEntrySourceLocation{
-				File:     "gslog/handler_test.go",
+				File:     "gcp/handler_test.go",
 				Line:     1,
-				Function: "m4o.io/gslog_test.TestJSONAndTextHandlers",
+				Function: "m4o.io/gslog/gcp_test.TestJSONAndTextHandlers",
 			},
 			want: func() logging.Entry {
 				p := &structpb.Struct{Fields: make(map[string]*structpb.Value)}
@@ -905,7 +901,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -919,7 +915,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -936,7 +932,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -953,7 +949,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -968,7 +964,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -985,7 +981,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -996,7 +992,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				return h.WithGroup("g").WithAttrs([]slog.Attr{slog.Int("a", 1)}).WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(gslog.MessageKey, "a")(groups, attr)
+				return removeKeys(core.MessageKey, "a")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1011,7 +1007,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -1022,7 +1018,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				return h.WithGroup("g").WithAttrs([]slog.Attr{slog.Int("a", 1)}).WithAttrs([]slog.Attr{slog.Int("n", 4)}).WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(gslog.MessageKey, "a", "b")(groups, attr)
+				return removeKeys(core.MessageKey, "a", "b")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1037,7 +1033,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -1052,7 +1048,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 					WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(gslog.MessageKey, "a", "c")(groups, attr)
+				return removeKeys(core.MessageKey, "a", "c")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1067,7 +1063,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
@@ -1078,7 +1074,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				if a.Value.Kind() == slog.KindGroup {
 					return slog.Attr{Key: "bad", Value: slog.IntValue(1)}
 				}
-				return removeKeys(gslog.MessageKey)(groups, a)
+				return removeKeys(core.MessageKey)(groups, a)
 			},
 			attrs: []slog.Attr{slog.Any("name", logValueName{"Perry", "Platypus"})},
 			want: func() logging.Entry {
@@ -1090,28 +1086,28 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 				return logging.Entry{
 					Payload:   p,
-					Timestamp: testTime.UTC(),
+					Timestamp: testhelp.Time.UTC(),
 					Severity:  logging.Info,
 				}
 			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			r := slog.NewRecord(testTime, slog.LevelInfo, "message", callerPC(2))
+			r := slog.NewRecord(testhelp.Time, slog.LevelInfo, "message", testhelp.CallerPC(2))
 			line := source(r).Line
 			r.AddAttrs(test.attrs...)
 
 			opts := []options.OptionProcessor{
-				gslog.WithReplaceAttr(test.replace),
-				gslog.WithDefaultLogLeveler(slog.LevelInfo),
+				core.WithReplaceAttr(test.replace),
+				core.WithDefaultLogLeveler(slog.LevelInfo),
 			}
 
 			if test.addSource != nil {
-				opts = append(opts, gslog.WithSourceAdded())
+				opts = append(opts, core.WithSourceAdded())
 			}
 
 			got := &Got{}
-			var h slog.Handler = gslog.NewGcpHandler(got, opts...)
+			var h slog.Handler = gcp.NewHandler(got, opts...)
 
 			if test.with != nil {
 				h = test.with(h)
@@ -1140,12 +1136,38 @@ func TestJSONAndTextHandlers(t *testing.T) {
 	}
 }
 
-// A record with no program counter gets no source location.
+// TestWithReplaceAttr_seesBaggage verifies that the mapper sees each
+// baggage attribute.
+func TestWithReplaceAttr_seesBaggage(t *testing.T) {
+	redact := func(_ []string, a slog.Attr) slog.Attr {
+		if strings.Contains(a.Key, "email") {
+			return slog.String(a.Key, "<redacted>")
+		}
+
+		return a
+	}
+
+	got := &Got{}
+	h := gcp.NewHandler(got, core.WithReplaceAttr(redact), otel.WithOtelBaggage())
+
+	bag := otel.MustParse("email=jan@example.com")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+
+	assert.NoError(t, h.Handle(ctx, record))
+
+	payload, ok := got.LogEntry.Payload.(*structpb.Struct)
+	assert.True(t, ok)
+	assert.Equal(t, "<redacted>", payload.GetFields()["otel-baggage/email"].GetStringValue())
+}
+
+// TestWithSourceAdded_noPC verifies that a record with no program counter
+// gets no source location.
 func TestWithSourceAdded_noPC(t *testing.T) {
 	got := &Got{}
-	h := gslog.NewGcpHandler(got, gslog.WithSourceAdded())
+	h := gcp.NewHandler(got, core.WithSourceAdded())
 
-	record := slog.NewRecord(testTime, slog.LevelInfo, "hello", 0)
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
 	assert.NoError(t, h.Handle(context.Background(), record))
 	assert.Nil(t, got.LogEntry.SourceLocation)
@@ -1153,7 +1175,7 @@ func TestWithSourceAdded_noPC(t *testing.T) {
 
 func TestWithLeveler(t *testing.T) {
 	got := &Got{}
-	h := gslog.NewGcpHandler(got, gslog.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, core.WithLogLeveler(slog.LevelInfo))
 
 	l := slog.New(h.WithLeveler(slog.LevelError))
 
@@ -1171,7 +1193,7 @@ func TestWithLeveler(t *testing.T) {
 // spare capacity.  Each sibling must log under its own group.
 func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
 	got := &Got{}
-	parent := gslog.NewGcpHandler(got).WithGroup("a").WithGroup("b").WithGroup("c")
+	parent := gcp.NewHandler(got).WithGroup("a").WithGroup("b").WithGroup("c")
 
 	first := parent.WithGroup("d")
 	second := parent.WithGroup("e")
@@ -1195,7 +1217,7 @@ func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
 
 func TestLevelCritical(t *testing.T) {
 	got := &Got{}
-	h := gslog.NewGcpHandler(got, gslog.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, core.WithLogLeveler(slog.LevelInfo))
 	l := slog.New(h)
 
 	l.Info("How now brown cow")
@@ -1205,7 +1227,7 @@ func TestLevelCritical(t *testing.T) {
 
 	got.LogEntry = logging.Entry{}
 
-	l.Log(context.Background(), gslog.LevelCritical, "Ouch!")
+	l.Log(context.Background(), core.LevelCritical, "Ouch!")
 	assert.Nil(t, got.LogEntry.Payload)
 	assert.NotNil(t, got.SyncLogEntry.Payload)
 }

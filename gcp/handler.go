@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog
+package gcp
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"slices"
 
@@ -26,19 +27,20 @@ import (
 	"github.com/pkg/errors"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
+	"m4o.io/gslog/core"
 	"m4o.io/gslog/internal/attr"
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
+	"m4o.io/gslog/internal/mapper"
 	"m4o.io/gslog/internal/options"
 )
 
-const (
-	// MessageKey is the key that Google Cloud Logging specifies for the
-	// message of the log call.  The value is a string.
-	MessageKey = "message"
-)
-
-// GcpHandler is a slog.Handler that writes to Google Cloud Logging.
-type GcpHandler struct {
+// Handler is a slog.Handler that writes to Google Cloud Logging through
+// the API client.
+//
+// A top-level attribute or group with the key "message" is replaced by the
+// message of the log call.
+type Handler struct {
 	// log is a *logging.Logger, except in tests.
 	log   Logger
 	level slog.Leveler
@@ -47,34 +49,35 @@ type GcpHandler struct {
 	// of the log statement.  The handler sets the position in the
 	// SourceLocation field of the entry.
 	addSource       bool
-	entryAugmentors []options.EntryAugmentor
-	replaceAttr     attr.Mapper
+	entryAugmentors []entry.Augmentor
+	replaceAttr     mapper.Mapper
 
 	payload *spb.Struct
 	groups  []string
 }
 
-var _ slog.Handler = (*GcpHandler)(nil)
+var _ slog.Handler = (*Handler)(nil)
 
-// NewGcpHandler creates a GcpHandler that writes to Google Cloud Logging.
-func NewGcpHandler(logger Logger, opts ...options.OptionProcessor) *GcpHandler {
+// NewHandler creates a Handler that writes to Google Cloud Logging through
+// the logger.
+func NewHandler(logger Logger, opts ...core.Option) *Handler {
 	if logger == nil {
 		panic("client is nil")
 	}
 
 	o := options.ApplyOptions(opts...)
 
-	return newGcpLoggerWithOptions(logger, o)
+	return newHandlerWithOptions(logger, o)
 }
 
-func newGcpLoggerWithOptions(logger Logger, opts *options.Options) *GcpHandler {
-	handler := &GcpHandler{
+func newHandlerWithOptions(logger Logger, opts *options.Options) *Handler {
+	handler := &Handler{
 		log:   logger,
 		level: opts.Level,
 
 		addSource:       opts.AddSource,
 		entryAugmentors: opts.EntryAugmentors,
-		replaceAttr:     attr.WrapAttrMapper(opts.ReplaceAttr),
+		replaceAttr:     mapper.Wrap(opts.ReplaceAttr),
 
 		payload: &spb.Struct{Fields: make(map[string]*spb.Value)},
 		groups:  nil,
@@ -84,7 +87,7 @@ func newGcpLoggerWithOptions(logger Logger, opts *options.Options) *GcpHandler {
 }
 
 // WithLeveler returns a copy of the handler that uses the supplied leveler.
-func (h *GcpHandler) WithLeveler(leveler slog.Leveler) *GcpHandler {
+func (h *Handler) WithLeveler(leveler slog.Leveler) *Handler {
 	if leveler == nil {
 		panic("Leveler is nil")
 	}
@@ -97,45 +100,33 @@ func (h *GcpHandler) WithLeveler(leveler slog.Leveler) *GcpHandler {
 
 // Enabled reports whether the handler handles records at the given level.
 // The handler ignores a record that has a lower level.
-func (h *GcpHandler) Enabled(_ context.Context, level slog.Level) bool {
+func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
 	return h.level.Level() <= level
 }
 
 // Handle handles a slog.Record as the slog.Handler interface specifies.
 // Handle translates the slog.Record into a logging.Entry.  The Payload of
 // the entry is a *spb.Struct.
-func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
-	payload := h.decorate(h.payload, h.groups, &record)
+func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
+	e := entry.Fill(ctx, &record, h.addSource, h.entryAugmentors)
 
-	a := slog.String(MessageKey, record.Message)
+	payload := h.decorate(h.payload, h.groups, &record, e.Attrs)
+
+	a := slog.String(core.MessageKey, record.Message)
 	if h.replaceAttr != nil {
 		a = h.replaceAttr(nil, a)
 	}
 
 	attr.DecorateWith(payload, a)
 
-	var entry logging.Entry
+	logEntry := toLogEntry(&e, &record, payload)
 
-	entry.Payload = payload
-	entry.Timestamp = record.Time.UTC()
-	entry.Severity = level.ToSeverity(record.Level)
-
-	if h.addSource {
-		addSourceLocation(&entry, &record)
-	}
-
-	for _, b := range h.entryAugmentors {
-		b(ctx, &entry, h.groups)
-	}
-
-	addLabels(ctx, &entry)
-
-	if entry.Severity >= logging.Critical {
-		if err := h.log.LogSync(ctx, entry); err != nil {
+	if logEntry.Severity >= logging.Critical {
+		if err := h.log.LogSync(ctx, logEntry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error logging: %s\n%s", record.Message, err)
 		}
 	} else {
-		h.log.Log(entry)
+		h.log.Log(logEntry)
 	}
 
 	return nil
@@ -143,18 +134,14 @@ func (h *GcpHandler) Handle(ctx context.Context, record slog.Record) error {
 
 // WithAttrs returns a copy of the handler.  The attributes of the copy are
 // the attributes of h followed by attrs.
-func (h *GcpHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	handler2 := h.clone()
 
 	payload, current := copyPath(h.payload, h.groups)
 	handler2.payload = payload
 
 	for _, a := range attrs {
-		if h.replaceAttr != nil {
-			a = h.replaceAttr(h.groups, a)
-		}
-
-		attr.DecorateWith(current, a)
+		h.decorateAttr(current, a)
 	}
 
 	return handler2
@@ -162,7 +149,7 @@ func (h *GcpHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 // WithGroup returns a copy of the handler.  The groups of the copy are the
 // groups of h followed by name.
-func (h *GcpHandler) WithGroup(name string) slog.Handler {
+func (h *Handler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
 	}
@@ -186,7 +173,7 @@ func (h *GcpHandler) WithGroup(name string) slog.Handler {
 // the creation of the client.  The error contains summary information about
 // the errors.  This information is unlikely to be actionable.  For more
 // accurate error reports, set Client.OnError.
-func (h *GcpHandler) Flush() error {
+func (h *Handler) Flush() error {
 	if err := h.log.Flush(); err != nil {
 		return errors.Wrap(err, "failed to flush handler")
 	}
@@ -194,30 +181,31 @@ func (h *GcpHandler) Flush() error {
 	return nil
 }
 
-// decorate returns a copy of src.  The copy has the attributes of record in
-// the group at the end of groups.  The copy shares all values of src that
-// are not on the group path.  If a group on the path is empty after decorate
-// adds the attributes, decorate removes that group from the copy.
-func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Record) *spb.Struct {
+// decorate returns a copy of src.  The copy has the attributes of record,
+// followed by extra, in the group at the end of groups.  The copy shares all
+// values of src that are not on the group path.  If a group on the path is
+// empty after decorate adds the attributes, decorate removes that group from
+// the copy.
+func (h *Handler) decorate(src *spb.Struct, groups []string, record *slog.Record, extra []slog.Attr) *spb.Struct {
 	dst := &spb.Struct{Fields: cloneFields(src)}
 
 	if len(groups) == 0 {
 		record.Attrs(func(a slog.Attr) bool {
-			if h.replaceAttr != nil {
-				a = h.replaceAttr(h.groups, a)
-			}
-
-			attr.DecorateWith(dst, a)
+			h.decorateAttr(dst, a)
 
 			return true
 		})
+
+		for _, a := range extra {
+			h.decorateAttr(dst, a)
+		}
 
 		return dst
 	}
 
 	name := groups[0]
 	group := src.GetFields()[name].GetStructValue()
-	child := h.decorate(group, groups[1:], record)
+	child := h.decorate(group, groups[1:], record, extra)
 
 	if len(child.Fields) == 0 {
 		delete(dst.Fields, name)
@@ -230,9 +218,19 @@ func (h *GcpHandler) decorate(src *spb.Struct, groups []string, record *slog.Rec
 	return dst
 }
 
+// decorateAttr applies the mapper to the attribute and adds the result to
+// the struct.
+func (h *Handler) decorateAttr(dst *spb.Struct, a slog.Attr) {
+	if h.replaceAttr != nil {
+		a = h.replaceAttr(h.groups, a)
+	}
+
+	attr.DecorateWith(dst, a)
+}
+
 // clone returns a copy of the handler.  The copy shares the payload of h.
-func (h *GcpHandler) clone() *GcpHandler {
-	return &GcpHandler{
+func (h *Handler) clone() *Handler {
+	return &Handler{
 		log:   h.log,
 		level: h.level,
 
@@ -245,20 +243,28 @@ func (h *GcpHandler) clone() *GcpHandler {
 	}
 }
 
-// addSourceLocation sets the source location of the entry from the record.
-// If the record has no program counter, the function does not set the
-// source location.
-func addSourceLocation(e *logging.Entry, r *slog.Record) {
-	src := r.Source()
-	if src == nil {
-		return
+// toLogEntry converts the entry, the record, and the payload to a
+// logging.Entry.
+func toLogEntry(e *entry.Entry, record *slog.Record, payload *spb.Struct) logging.Entry {
+	logEntry := logging.Entry{
+		Timestamp:    record.Time.UTC(),
+		Severity:     logging.Severity(level.ToSeverity(record.Level)),
+		Labels:       e.Labels,
+		Trace:        e.Trace,
+		SpanID:       e.SpanID,
+		TraceSampled: e.TraceSampled,
+		Payload:      payload,
 	}
 
-	e.SourceLocation = &logpb.LogEntrySourceLocation{
-		File:     src.File,
-		Line:     int64(src.Line),
-		Function: src.Function,
+	if e.Source != nil {
+		logEntry.SourceLocation = &logpb.LogEntrySourceLocation{
+			File:     e.Source.File,
+			Line:     int64(e.Source.Line),
+			Function: e.Source.Function,
+		}
 	}
+
+	return logEntry
 }
 
 // copyPath returns a copy of src with a new struct at each level of path.
@@ -280,14 +286,12 @@ func copyPath(src *spb.Struct, path []string) (top, current *spb.Struct) {
 }
 
 // cloneFields returns a new map with the same keys and values as the fields
-// of s.
+// of s.  The map of a nil struct is empty.
 func cloneFields(s *spb.Struct) map[string]*spb.Value {
-	fields := s.GetFields()
-	dst := make(map[string]*spb.Value, len(fields))
-
-	for k, v := range fields {
-		dst[k] = v
+	fields := maps.Clone(s.GetFields())
+	if fields == nil {
+		return make(map[string]*spb.Value)
 	}
 
-	return dst
+	return fields
 }

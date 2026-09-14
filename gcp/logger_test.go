@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package gcp_test
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 	"cloud.google.com/go/logging"
 	"github.com/stretchr/testify/assert"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/gcp"
 )
 
 type discard struct{}
@@ -38,12 +38,12 @@ func (d discard) Flush() error {
 
 // Discard is a Logger that does nothing.  Tests and benchmarks can use
 // Discard as a stub for Google Cloud Logging.
-var Discard gslog.Logger = discard{}
+var Discard gcp.Logger = discard{}
 
 func TestLoggerFunc_Log(t *testing.T) {
 	var called bool
 
-	l := gslog.LoggerFunc(func(e logging.Entry) {
+	l := gcp.LoggerFunc(func(e logging.Entry) {
 		called = true
 	})
 
@@ -55,7 +55,7 @@ func TestLoggerFunc_Log(t *testing.T) {
 func TestLoggerFunc_LogSync(t *testing.T) {
 	var called bool
 
-	l := gslog.LoggerFunc(func(e logging.Entry) {
+	l := gcp.LoggerFunc(func(e logging.Entry) {
 		called = true
 	})
 

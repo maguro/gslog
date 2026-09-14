@@ -17,30 +17,74 @@ package level_test
 import (
 	"log/slog"
 	"math"
+	"testing"
 
 	"cloud.google.com/go/logging"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 
-	"m4o.io/gslog"
 	"m4o.io/gslog/internal/level"
 )
 
-var _ = DescribeTable("Mapping slog.Level to logging.Severity",
-	func(lvl slog.Level, expected logging.Severity) {
-		Ω(level.ToSeverity(lvl)).Should(Equal(expected))
-	},
-	Entry("trace", slog.Level(-8), logging.Severity(0)),
-	Entry("debug", slog.LevelDebug, logging.Debug),
-	Entry("info", slog.LevelInfo, logging.Info),
-	Entry("notice", gslog.LevelNotice, logging.Notice),
-	Entry("warn", slog.LevelWarn, logging.Warning),
-	Entry("error", slog.LevelError, logging.Error),
-	Entry("critical", gslog.LevelCritical, logging.Critical),
-	Entry("alert", gslog.LevelAlert, logging.Alert),
-	Entry("emergency", gslog.LevelEmergency, logging.Emergency),
-	Entry("below the range", slog.Level(-12), logging.Default),
-	Entry("above the range", slog.Level(24), logging.Emergency),
-	Entry("lowest level", slog.Level(math.MinInt), logging.Default),
-	Entry("highest level", slog.Level(math.MaxInt), logging.Emergency),
-)
+// TestToSeverity verifies the mapping from slog levels to severities against
+// the constants of the Cloud Logging client.
+func TestToSeverity(t *testing.T) {
+	tests := map[string]struct {
+		level slog.Level
+		want  logging.Severity
+	}{
+		"trace":           {slog.Level(-8), logging.Default},
+		"debug":           {slog.LevelDebug, logging.Debug},
+		"info":            {slog.LevelInfo, logging.Info},
+		"notice":          {level.LevelNotice, logging.Notice},
+		"warn":            {slog.LevelWarn, logging.Warning},
+		"error":           {slog.LevelError, logging.Error},
+		"critical":        {level.LevelCritical, logging.Critical},
+		"alert":           {level.LevelAlert, logging.Alert},
+		"emergency":       {level.LevelEmergency, logging.Emergency},
+		"below the range": {slog.Level(-12), logging.Default},
+		"above the range": {slog.Level(24), logging.Emergency},
+		"lowest level":    {slog.Level(math.MinInt), logging.Default},
+		"highest level":   {slog.Level(math.MaxInt), logging.Emergency},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := level.ToSeverity(tc.level)
+
+			assert.Equal(t, level.Severity(tc.want), got)
+		})
+	}
+}
+
+// TestSeverities verifies that each severity has the value and the name of
+// the same severity in the Cloud Logging API.
+func TestSeverities(t *testing.T) {
+	tests := []struct {
+		severity level.Severity
+		want     logging.Severity
+		name     string
+	}{
+		{level.Default, logging.Default, "DEFAULT"},
+		{level.Debug, logging.Debug, "DEBUG"},
+		{level.Info, logging.Info, "INFO"},
+		{level.Notice, logging.Notice, "NOTICE"},
+		{level.Warning, logging.Warning, "WARNING"},
+		{level.Error, logging.Error, "ERROR"},
+		{level.Critical, logging.Critical, "CRITICAL"},
+		{level.Alert, logging.Alert, "ALERT"},
+		{level.Emergency, logging.Emergency, "EMERGENCY"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, int(tc.want), int(tc.severity))
+			assert.Equal(t, tc.name, tc.severity.String())
+		})
+	}
+}
+
+// TestSeverity_String_unknown verifies that an unknown severity is its
+// number.
+func TestSeverity_String_unknown(t *testing.T) {
+	assert.Equal(t, "250", level.Severity(250).String())
+}

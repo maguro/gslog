@@ -12,18 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+// Package testhelp contains helpers that the handler tests share.
+package testhelp
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"runtime"
+	"time"
 )
 
-func TestGo(t *testing.T) {
-	RegisterFailHandler(Fail)
-	suiteConfig, reporterConfig := GinkgoConfiguration()
-	reporterConfig.Verbose = true
-	RunSpecs(t, "GCP Cloud Logging slog Handler Suite", suiteConfig, reporterConfig)
+// Time is the fixed time of the test records.
+//
+//nolint:gochecknoglobals
+var Time = time.Date(2000, 1, 2, 3, 4, 5, 0, time.UTC)
+
+// CallerPC returns the program counter at the given stack depth.  Depth 1 is
+// the caller of CallerPC.
+func CallerPC(depth int) uintptr {
+	var pcs [1]uintptr
+
+	runtime.Callers(depth, pcs[:])
+
+	return pcs[0]
 }

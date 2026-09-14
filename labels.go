@@ -16,116 +16,33 @@ package gslog
 
 import (
 	"context"
-	"log/slog"
 
-	"cloud.google.com/go/logging"
-)
-
-const (
-	maxLabels = 64
+	"m4o.io/gslog/core"
 )
 
 // LabelPair represents a key-value string pair.
-type LabelPair struct {
-	valid  bool
-	ignore bool
-	key    string
-	val    string
-}
-
-// IsIgnored reports whether there is a problem with the label pair.  The
-// handler does not add an ignored label pair to the logging record.
-func (lp LabelPair) IsIgnored() bool {
-	return lp.ignore
-}
-
-// LogValue returns the slog.Value of the label pair.
-func (lp LabelPair) LogValue() slog.Value {
-	return slog.GroupValue(
-		slog.String("key", lp.key),
-		slog.String("value", lp.val))
-}
+//
+// Deprecated: Use core.LabelPair.
+type LabelPair = core.LabelPair
 
 // Label returns a new LabelPair from a key and a value.
+//
+// Deprecated: Use core.Label.
 func Label(key, value string) LabelPair {
-	return LabelPair{valid: true, ignore: false, key: key, val: value}
+	return core.Label(key, value)
 }
-
-type labelsKey struct{}
 
 // WithLabels returns a new Context that has the labels of ctx and the
-// supplied labels.  The handler adds these labels to each log entry that it
-// makes with that context.  A supplied label with the same key as a label of
-// ctx replaces the label of ctx.  The function panics if a label pair is not
-// valid.
+// supplied labels.
+//
+// Deprecated: Use core.WithLabels.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
-	parent := labelsFrom(ctx)
-	labels := make(map[string]string, len(parent)+len(labelPairs))
-
-	for key, val := range parent {
-		labels[key] = val
-	}
-
-	for _, labelPair := range labelPairs {
-		if labelPair.ignore {
-			continue
-		}
-
-		if !labelPair.valid {
-			panic("invalid label passed to WithLabels()")
-		}
-
-		if len(labels) >= maxLabels {
-			slog.Error("Too many labels", "ignored", labelPair)
-
-			continue
-		}
-
-		labels[labelPair.key] = labelPair.val
-	}
-
-	return context.WithValue(ctx, labelsKey{}, labels)
+	return core.WithLabels(ctx, labelPairs...)
 }
 
-// ExtractLabels returns the labels that WithLabels stored in ctx.  The
-// returned map is a copy.
+// ExtractLabels returns the labels that WithLabels stored in ctx.
+//
+// Deprecated: Use core.ExtractLabels.
 func ExtractLabels(ctx context.Context) map[string]string {
-	labels := labelsFrom(ctx)
-	if labels == nil {
-		return nil
-	}
-
-	copied := make(map[string]string, len(labels))
-
-	for key, val := range labels {
-		copied[key] = val
-	}
-
-	return copied
-}
-
-// addLabels adds the labels of ctx to the entry.  If the entry has no
-// labels, addLabels gives the entry the map from ctx.
-func addLabels(ctx context.Context, entry *logging.Entry) {
-	labels := labelsFrom(ctx)
-	if len(labels) == 0 {
-		return
-	}
-
-	if entry.Labels == nil {
-		entry.Labels = labels
-
-		return
-	}
-
-	for key, val := range labels {
-		entry.Labels[key] = val
-	}
-}
-
-// labelsFrom returns the labels stored in ctx by WithLabels.
-func labelsFrom(ctx context.Context) map[string]string {
-	labels, _ := ctx.Value(labelsKey{}).(map[string]string)
-
-	return labels
+	return core.ExtractLabels(ctx)
 }

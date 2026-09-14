@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog
+package core_test
 
-import "m4o.io/gslog/core"
+import (
+	"testing"
 
-// MessageKey is the key that Google Cloud Logging specifies for the message
-// of the log call.
-//
-// Deprecated: Use core.MessageKey.
-const MessageKey = core.MessageKey
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-// AttrMapper rewrites each non-group attribute before the handler logs the
-// attribute.
-//
-// Deprecated: Use core.AttrMapper.
-type AttrMapper = core.AttrMapper
+func TestGo(t *testing.T) {
+	RegisterFailHandler(Fail)
+	suiteConfig, reporterConfig := GinkgoConfiguration()
+	reporterConfig.Verbose = true
+	RunSpecs(t, "gslog core Suite", suiteConfig, reporterConfig)
+}

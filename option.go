@@ -16,89 +16,60 @@ package gslog
 
 import (
 	"log/slog"
-	"os"
-	"strconv"
 
+	"m4o.io/gslog/core"
 	"m4o.io/gslog/internal/options"
 )
 
 // Options holds the information necessary to construct an instance of
 // GcpHandler.
+//
+// Deprecated: No function accepts Options.  Use the functions that return
+// core.Option.
 type Options struct {
 	options.Options
 }
 
-// WithLogLeveler returns an option that specifies the slog.Leveler for logging.
-// This option has precedence over the other log level options.
-func WithLogLeveler(logLevel slog.Leveler) options.OptionProcessor {
-	return func(o *options.Options) {
-		o.ExplicitLogLevel = logLevel
-	}
+// Option configures a handler.
+//
+// Deprecated: Use core.Option.
+type Option = core.Option
+
+// WithLogLeveler returns an option that specifies the slog.Leveler for
+// logging.
+//
+// Deprecated: Use core.WithLogLeveler.
+func WithLogLeveler(logLevel slog.Leveler) Option {
+	return core.WithLogLeveler(logLevel)
 }
 
 // WithLogLevelFromEnvVar returns an option that reads the log level from the
 // environment variable that key names.
-func WithLogLevelFromEnvVar(key string) options.OptionProcessor {
-	if key == "" {
-		panic("Env var key is empty")
-	}
-
-	var envVarLogLevel slog.Level
-
-	setLogLevel := func(o *options.Options) {
-		o.EnvVarLogLevel = envVarLogLevel
-	}
-
-	str, ok := os.LookupEnv(key)
-	if !ok {
-		return func(_ *options.Options) {}
-	}
-
-	lvl, err := strconv.Atoi(str)
-	if err == nil {
-		envVarLogLevel = slog.Level(lvl)
-
-		return setLogLevel
-	}
-
-	switch str {
-	case nameDebug:
-		envVarLogLevel = slog.LevelDebug
-	case nameInfo:
-		envVarLogLevel = slog.LevelInfo
-	case "WARN":
-		envVarLogLevel = slog.LevelWarn
-	case nameError:
-		envVarLogLevel = slog.LevelError
-	default:
-		envVarLogLevel = slog.LevelInfo
-	}
-
-	return setLogLevel
+//
+// Deprecated: Use core.WithLogLevelFromEnvVar.
+func WithLogLevelFromEnvVar(key string) Option {
+	return core.WithLogLevelFromEnvVar(key)
 }
 
 // WithDefaultLogLeveler returns an option that specifies the default
 // slog.Leveler for logging.
-func WithDefaultLogLeveler(defaultLogLevel slog.Leveler) options.OptionProcessor {
-	return func(o *options.Options) {
-		o.DefaultLogLevel = defaultLogLevel
-	}
+//
+// Deprecated: Use core.WithDefaultLogLeveler.
+func WithDefaultLogLeveler(defaultLogLevel slog.Leveler) Option {
+	return core.WithDefaultLogLeveler(defaultLogLevel)
 }
 
 // WithSourceAdded returns an option that causes the handler to compute the
-// source code position of the log statement.  The handler sets the position
-// in the SourceLocation field of the entry.
-func WithSourceAdded() options.OptionProcessor {
-	return func(o *options.Options) {
-		o.AddSource = true
-	}
+// source code position of the log statement.
+//
+// Deprecated: Use core.WithSourceAdded.
+func WithSourceAdded() Option {
+	return core.WithSourceAdded()
 }
 
-// WithReplaceAttr returns an option that specifies an attribute mapper.  The
-// handler calls the mapper to rewrite each non-group attribute before the
-// handler logs the attribute.
-func WithReplaceAttr(replaceAttr AttrMapper) options.OptionProcessor {
-	return func(o *options.Options) {
-		o.ReplaceAttr = replaceAttr
-	}
+// WithReplaceAttr returns an option that specifies an attribute mapper.
+//
+// Deprecated: Use core.WithReplaceAttr.
+func WithReplaceAttr(replaceAttr AttrMapper) Option {
+	return core.WithReplaceAttr(replaceAttr)
 }

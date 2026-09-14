@@ -24,12 +24,14 @@ package k8s
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 
-	"cloud.google.com/go/logging"
 	"github.com/magiconair/properties"
 
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
 
@@ -46,13 +48,13 @@ const (
 //
 // The handler adds the prefix "k8s-pod/" to each label.  This follows the
 // Google Cloud Logging conventions for Kubernetes Pod labels.
-func WithPodinfoLabels(root string) options.OptionProcessor {
+func WithPodinfoLabels(root string) core.Option {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, podinfoAugmentor(root))
 	}
 }
 
-func podinfoAugmentor(root string) options.EntryAugmentor {
+func podinfoAugmentor(root string) entry.Augmentor {
 	path := filepath.Join(root, "labels")
 
 	props, err := properties.LoadFile(path, properties.UTF8)
@@ -63,19 +65,17 @@ func podinfoAugmentor(root string) options.EntryAugmentor {
 			slog.Warn("Unable to load podinfo labels", "path", path, "error", err)
 		}
 
-		return func(_ context.Context, _ *logging.Entry, _ []string) {}
+		return func(_ context.Context, _ *entry.Entry) {}
 	}
 
 	labels := podLabels(props)
 
-	return func(_ context.Context, entry *logging.Entry, _ []string) {
-		if entry.Labels == nil {
-			entry.Labels = make(map[string]string, len(labels))
+	return func(_ context.Context, e *entry.Entry) {
+		if e.Labels == nil {
+			e.Labels = make(map[string]string, len(labels))
 		}
 
-		for key, val := range labels {
-			entry.Labels[key] = val
-		}
+		maps.Copy(e.Labels, labels)
 	}
 }
 

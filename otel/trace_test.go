@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/otel"
 )
 
@@ -60,7 +60,7 @@ func TestWithOtelTracing(t *testing.T) {
 	ctx = trace.ContextWithRemoteSpanContext(ctx, sCtx)
 
 	got := &Got{}
-	h := gslog.NewGcpHandler(got, otel.WithOtelTracing("my-project"))
+	h := gcp.NewHandler(got, otel.WithOtelTracing("my-project"))
 	l := slog.New(h)
 
 	l.Log(ctx, slog.LevelInfo, "how now brown cow")

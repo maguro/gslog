@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog_test
+package core_test
 
 import (
 	"log/slog"
@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"m4o.io/gslog"
+	"m4o.io/gslog/core"
 	"m4o.io/gslog/internal/options"
 )
 
@@ -63,10 +63,10 @@ func TestLogLevel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var opts []options.OptionProcessor
 			if tc.explicitLogLevel != levelUnknown {
-				opts = append(opts, gslog.WithLogLeveler(tc.explicitLogLevel))
+				opts = append(opts, core.WithLogLeveler(tc.explicitLogLevel))
 			}
 			if tc.defaultLogLevel != levelUnknown {
-				opts = append(opts, gslog.WithDefaultLogLeveler(tc.defaultLogLevel))
+				opts = append(opts, core.WithDefaultLogLeveler(tc.defaultLogLevel))
 			}
 			if tc.envVar {
 				if tc.envVarKey != "" {
@@ -75,7 +75,7 @@ func TestLogLevel(t *testing.T) {
 						assert.NoError(t, os.Unsetenv(envVarLogLevelKey))
 					}()
 				}
-				opts = append(opts, gslog.WithLogLevelFromEnvVar(envVarLogLevelKey))
+				opts = append(opts, core.WithLogLevelFromEnvVar(envVarLogLevelKey))
 			}
 
 			o := options.ApplyOptions(opts...)
@@ -90,20 +90,20 @@ func TestWithLogLevelFromEnvVar(t *testing.T) {
 			t.Error("expected panic")
 		}
 	}()
-	gslog.WithLogLevelFromEnvVar("")
+	core.WithLogLevelFromEnvVar("")
 }
 
 func TestWithSourceAdded(t *testing.T) {
-	o := options.ApplyOptions(gslog.WithSourceAdded(), gslog.WithDefaultLogLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(core.WithSourceAdded(), core.WithDefaultLogLeveler(slog.LevelInfo))
 	assert.True(t, o.AddSource)
 }
 
 func TestWithReplaceAttr(t *testing.T) {
 	s := slog.String("foo", "bar")
-	var ra gslog.AttrMapper = func(groups []string, a slog.Attr) slog.Attr {
+	var ra core.AttrMapper = func(groups []string, a slog.Attr) slog.Attr {
 		return s
 	}
 
-	o := options.ApplyOptions(gslog.WithReplaceAttr(ra), gslog.WithDefaultLogLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(core.WithReplaceAttr(ra), core.WithDefaultLogLeveler(slog.LevelInfo))
 	assert.Equal(t, s, o.ReplaceAttr(nil, slog.String("unused", "string")))
 }

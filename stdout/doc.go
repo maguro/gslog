@@ -12,18 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gslog
-
-import "m4o.io/gslog/core"
-
-// MessageKey is the key that Google Cloud Logging specifies for the message
-// of the log call.
-//
-// Deprecated: Use core.MessageKey.
-const MessageKey = core.MessageKey
-
-// AttrMapper rewrites each non-group attribute before the handler logs the
-// attribute.
-//
-// Deprecated: Use core.AttrMapper.
-type AttrMapper = core.AttrMapper
+// Package stdout contains a slog.Handler that writes each log record to a
+// writer as one line of JSON.  The line has the structured logging format
+// that the Google Cloud logging agent reads.
+package stdout
