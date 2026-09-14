@@ -8,7 +8,10 @@
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
 
 Google Cloud Logging [Handler](https://pkg.go.dev/log/slog#Handler)
-implementations for [slog](https://go.dev/blog/slog).
+implementations for [slog](https://go.dev/blog/slog). The handlers put
+OpenTelemetry trace information into the tracing fields of each entry. They
+also add OpenTelemetry baggage, Kubernetes pod labels, and labels from the
+context to each entry.
 
 ---
 
