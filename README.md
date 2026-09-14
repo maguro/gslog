@@ -7,37 +7,46 @@
 [![codecov](https://codecov.io/gh/maguro/gslog/graph/badge.svg?token=3FAJJ2SIZB)](https://codecov.io/gh/maguro/gslog)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
 
-A Google Cloud Logging [Handler](https://pkg.go.dev/log/slog#Handler) implementation
-for [slog](https://go.dev/blog/slog).
+Google Cloud Logging [Handler](https://pkg.go.dev/log/slog#Handler)
+implementations for [slog](https://go.dev/blog/slog).
 
 ---
 
-This Google Cloud Logging (GCL) [slog.Handler](https://pkg.go.dev/log/slog#Handler)
-implementation fills the GCL entry, `logging.Entry`, directly. The handler gets
-the information from the `context.Context`, the `slog.Record`, and the state of
-the handler itself. The handler sets `logging.Entry.Payload` to a
+gslog has two handlers. Both handlers make the same Google Cloud Logging
+(GCL) entry. The packages are:
+
+- `gcp` holds a handler that sends each entry with the
+  [Cloud Logging API client](https://pkg.go.dev/cloud.google.com/go/logging).
+- `stdout` holds a handler that writes each entry as one line of JSON. A
+  logging agent reads the line and makes the entry.
+- `core` holds the options, the labels, and the levels that both handlers
+  use.
+- `otel` and `k8s` hold options that read information from other frameworks.
+
+The `gcp` handler fills the GCL entry, `logging.Entry`, directly. The handler
+gets the information from the `context.Context`, the `slog.Record`, and the
+state of the handler itself. The handler sets `logging.Entry.Payload` to a
 [Protobuf `structpb.Struct`](https://pkg.go.dev/google.golang.org/protobuf/types/known/structpb#Struct)
 instance. The result is a `jsonPayload` in which the log message has the key
 "message". The handler [sends log records asynchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.Log).
 The handler [sends log records at Critical level or higher synchronously](https://pkg.go.dev/cloud.google.com/go/logging#Logger.LogSync).
 
-The options of the GCL handler include several ways to include information
+The options of both handlers include several ways to include information
 from other frameworks:
 
 - Labels in the context, set with `core.WithLabels(ctx, ...labels)`. The
-  handler adds them to the `Labels` field of the GCL entry, `logging.Entry`.
-  The maximum number of labels is 64.
-- [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) in the context. The handler adds
+  handlers add them to the labels of the GCL entry. The maximum number of
+  labels is 64.
+- [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) in the context. The handlers add
   the baggage as attributes, `slog.Attr`, to the logging record, `slog.Record`.
-  The handler adds the prefix "otel-baggage/" to each baggage key. The prefix
+  The handlers add the prefix "otel-baggage/" to each baggage key. The prefix
   makes collisions with other log attributes less likely.
-- [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/) in the context. The handler adds
-  the tracing information directly to the tracing fields of the GCL entry,
-  `logging.Entry`.
+- [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/) in the context. The handlers add
+  the tracing information directly to the tracing fields of the GCL entry.
 - Labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/)
-  podinfo `labels` file. The handler adds them to the `Labels` field of the GCL
-  entry, `logging.Entry`. The handler adds the prefix "k8s-pod/" to each label.
-  This follows the GCL conventions for Kubernetes Pod labels.
+  podinfo `labels` file. The handlers add them to the labels of the GCL entry.
+  The handlers add the prefix "k8s-pod/" to each label. This follows the GCL
+  conventions for Kubernetes Pod labels.
 
 ## Install
 
@@ -117,11 +126,12 @@ l.Info("How now brown cow?")
 
 This handler does not use a `logging.Client`. The `stdout` package and the
 `core` package, which holds the shared options, labels, and levels, import no
-module outside the standard library. The root `gslog` package is deprecated.
-It exports the names of release v0.23.0 and imports the API client. Each
-entry is written
-before the log call returns, so no entry waits in a buffer when the instance
-stops. All options in the table below work with both handlers.
+module outside the standard library. The handler writes each entry before the
+log call returns, so no entry waits in a buffer when the instance stops. All
+options in the table below work with both handlers.
+
+The root `gslog` package is deprecated. It exports the names of release
+v0.23.0 and imports the API client.
 
 ## Logger Configuration Options
 
