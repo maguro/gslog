@@ -7,13 +7,80 @@
 [![codecov](https://codecov.io/gh/maguro/gslog/graph/badge.svg?token=3FAJJ2SIZB)](https://codecov.io/gh/maguro/gslog)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
 
-Google Cloud Logging [Handler](https://pkg.go.dev/log/slog#Handler)
-implementations for [slog](https://go.dev/blog/slog). The handlers put
-OpenTelemetry trace information into the tracing fields of each entry. They
-also add OpenTelemetry baggage, Kubernetes pod labels, and labels from the
-context to each entry.
+Structured logging to Google Cloud Logging from Go's `log/slog`. gslog
+writes each `slog` record as a Cloud Logging entry with the correct severity,
+a `jsonPayload`, and the fields that link the entry to its trace in Cloud
+Trace. It also adds OpenTelemetry baggage, Kubernetes pod labels, and labels
+from the context.
 
----
+## Install
+
+```sh
+go get m4o.io/gslog
+```
+
+**Compatibility**: go >= 1.26
+
+gslog uses the `log/slog` API that Go 1.21 introduced. The dependencies of
+gslog set the minimum Go version to 1.26. The language features that gslog
+uses do not set this minimum.
+
+## Quick Start
+
+On Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent, a logging
+agent reads stdout. Write to stdout with the `stdout` handler:
+
+```go
+package main
+
+import (
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout)
+	slog.SetDefault(slog.New(h))
+
+	slog.Info("How now brown cow?", "animal", "cow")
+}
+```
+
+```json
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2026-09-19T00:53:53.833535Z","animal":"cow"}
+```
+
+The agent makes an INFO entry with `animal` in its `jsonPayload`.
+
+### Link Logs to Traces
+
+Add `otel.WithOtelTracing` and log with a context that holds an OpenTelemetry
+span:
+
+```go
+h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
+logger := slog.New(h)
+
+logger.InfoContext(ctx, "Order placed", "order_id", "A-1001")
+```
+
+```json
+{"severity":"INFO","message":"Order placed","timestamp":"2026-09-19T00:53:54.173948Z","logging.googleapis.com/trace":"projects/my-project/traces/52fc1643a9381fc674742bb0067101e7","logging.googleapis.com/spanId":"d3e9e8c51cb190df","logging.googleapis.com/trace_sampled":true,"order_id":"A-1001"}
+```
+
+Cloud Logging shows the entry under its trace in Cloud Trace, and the Logs
+Explorer groups the entries of one request.
+
+### Which Handler
+
+| Handler  | Use it when                                                            |
+|----------|------------------------------------------------------------------------|
+| `stdout` | A logging agent reads stdout.                                          |
+| `gcp`    | No agent reads stdout, or you want to use the Cloud Logging API client. |
+
+## Packages
 
 gslog has two handlers. Both handlers make the same Google Cloud Logging
 (GCL) entry. The packages are:
@@ -51,19 +118,7 @@ from other frameworks:
   The handlers add the prefix "k8s-pod/" to each label. This follows the GCL
   conventions for Kubernetes Pod labels.
 
-## Install
-
-```sh
-go get m4o.io/gslog
-```
-
-**Compatibility**: go >= 1.26
-
-gslog uses the `log/slog` API that Go 1.21 introduced. The dependencies of
-gslog set the minimum Go version to 1.26. The language features that gslog
-uses do not set this minimum.
-
-## Example Usage
+## Using the gcp Handler
 
 First, create a [Google Cloud Logging](https://pkg.go.dev/cloud.google.com/go/logging)
 `logging.Client`. Use this client throughout your application:
@@ -117,15 +172,6 @@ agent reads stdout. `stdout.NewHandler` writes each entry as one line of
 JSON in the [structured logging format](https://cloud.google.com/logging/docs/structured-logging)
 that the agent reads. The agent makes the same GCL entry that the API client
 makes, with the same severity, labels, trace fields, and `jsonPayload`.
-
-```go
-import "m4o.io/gslog/stdout"
-
-h := stdout.NewHandler(os.Stdout)
-l := slog.New(h)
-
-l.Info("How now brown cow?")
-```
 
 This handler does not use a `logging.Client`. The `stdout` package and the
 `core` package, which holds the shared options, labels, and levels, import no
