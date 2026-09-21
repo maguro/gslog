@@ -81,6 +81,32 @@ To get the project ID from the metadata server, as the
 h := stdout.NewHandler(os.Stdout, detect.WithOtelTracing())
 ```
 
+The handler gets the span only from the context of the log call. Use a call
+with a context, such as `logger.InfoContext(ctx, ...)`. The record of a call
+with no context, such as `logger.Info(...)`, has no trace.
+
+A program that uses the OpenTelemetry SDK with `otelhttp` already has the span
+in the context of each request. A program with no SDK can read the W3C
+`traceparent` header with a small wrapper:
+
+```go
+func withTraceContext(next http.Handler) http.Handler {
+	propagator := propagation.TraceContext{}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		carrier := propagation.HeaderCarrier(r.Header)
+		ctx := propagator.Extract(r.Context(), carrier)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
+	})
+}
+```
+
+`propagation` is `go.opentelemetry.io/otel/propagation`. The
+`ExampleWithOtelTracing_httpServer` example in the `otel` package runs this
+wrapper.
+
 ### Which Handler
 
 | Handler  | Use it when                                                            |

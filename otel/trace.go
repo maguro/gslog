@@ -28,7 +28,12 @@ import (
 
 // WithOtelTracing returns an option that causes the handler to include
 // OpenTelemetry tracing.  The handler gets the tracing information from the
-// trace.SpanContext in the context, if the context has one.
+// trace.SpanContext in the context, if the context has one.  projectID is the
+// ID of the project that holds the traces.
+//
+// The handler gets the span context only from the context of the log call.
+// The record of a log call with no context, such as Logger.Info, has no
+// tracing.  Use a call with a context, such as Logger.InfoContext.
 func WithOtelTracing(projectID string) core.Option {
 	tracePrefix := "projects/" + projectID + "/traces/"
 
