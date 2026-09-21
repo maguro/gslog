@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stdout
+package jbuf
 
 import (
 	"encoding/json"
@@ -62,4 +62,26 @@ func TestAppendNumber(t *testing.T) {
 	assert.Equal(t, `"NaN"`, string(appendNumber(nil, math.NaN())))
 	assert.Equal(t, `"Infinity"`, string(appendNumber(nil, math.Inf(1))))
 	assert.Equal(t, `"-Infinity"`, string(appendNumber(nil, math.Inf(-1))))
+}
+
+func TestTrimExponent(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		buf   string
+		start int
+		want  string
+	}{
+		{name: "buffer shorter than an exponent", buf: "1e9", start: 0, want: "1e9"},
+		{name: "number shorter than an exponent", buf: "prefix1e9", start: 6, want: "prefix1e9"},
+		{name: "leading zero removed", buf: "2.5e-09", start: 0, want: "2.5e-9"},
+		{name: "leading zero removed after a prefix", buf: `{"a":1e-09`, start: 5, want: `{"a":1e-9`},
+		{name: "two-digit exponent kept", buf: "1e-10", start: 0, want: "1e-10"},
+		{name: "positive exponent kept", buf: "1e+21", start: 0, want: "1e+21"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := trimExponent([]byte(tt.buf), tt.start)
+
+			assert.Equal(t, tt.want, string(got))
+		})
+	}
 }
