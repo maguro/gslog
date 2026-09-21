@@ -15,6 +15,7 @@
 package attr_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog/internal/attr"
@@ -179,18 +181,20 @@ func TestAsJson(t *testing.T) {
 	tests := map[string]struct {
 		attr  any
 		value *structpb.Value
-		ok    bool
+		err   bool
 	}{
-		"nil":        {nil, attr.NewNilValue(), true},
-		"not simple": {u, uStruct, true},
-		"error":      {circular, nil, false},
+		"nil":        {nil, attr.NewNilValue(), false},
+		"not simple": {u, uStruct, false},
+		"error":      {circular, nil, true},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			value, ok := attr.AsJSON(tc.attr)
-			assert.Equal(t, tc.ok, ok)
-			if tc.ok {
+			value, err := attr.AsJSON(tc.attr)
+			if tc.err {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 				assert.Equal(t, tc.value, value)
 			}
 		})
@@ -199,6 +203,12 @@ func TestAsJson(t *testing.T) {
 
 func TestValToStruct(t *testing.T) {
 	now := time.Now().UTC()
+
+	_, cycleErr := json.Marshal(circular)
+	require.Error(t, cycleErr)
+
+	cycleText := "!ERROR:" + cycleErr.Error()
+
 	tests := map[string]struct {
 		attr  slog.Value
 		value *structpb.Value
@@ -220,7 +230,8 @@ func TestValToStruct(t *testing.T) {
 		"any JSON":               {slog.AnyValue(u), uStruct, true},
 		"any json.Marshaler":     {slog.AnyValue(chimera), cStruct, true},
 		"any error":              {slog.AnyValue(errors.New("ouch")), attr.NewStringValue("ouch"), true},
-		"error":                  {slog.AnyValue(circular), nil, false},
+		"any with no JSON form":  {slog.AnyValue(circular), attr.NewStringValue(cycleText), true},
+		"any channel":            {slog.AnyValue(make(chan int)), attr.NewStringValue("!ERROR:json: unsupported type: chan int"), true},
 	}
 
 	for name, tc := range tests {

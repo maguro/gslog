@@ -42,6 +42,9 @@ import (
 // handler writes the error report of a record at the keys that Error
 // Reporting reads.  The handler replaces a top-level attribute or group that
 // has one of these keys.
+//
+// For an attribute value that encoding/json cannot encode, the handler
+// writes the string "!ERROR:" followed by the error text.
 type Handler struct {
 	// log is a *logging.Logger, except in tests.
 	log   Logger

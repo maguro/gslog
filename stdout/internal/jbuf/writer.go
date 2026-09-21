@@ -52,6 +52,10 @@ const (
 	maxPooledBuffer   = 16 << 10
 )
 
+// errorPrefix is the start of the string that the writer appends for a value
+// that encoding/json cannot encode.  log/slog uses the same text.
+const errorPrefix = "!ERROR:"
+
 var writerPool = sync.Pool{
 	New: func() any {
 		return &Writer{buf: make([]byte, 0, initialBufferSize), first: true}
@@ -246,7 +250,9 @@ func (w *Writer) AppendErrorReport(report *entry.ErrorReport) {
 
 // AppendAnyAttr appends an attribute of kind slog.KindAny.  A nil value is
 // null.  An error that does not implement json.Marshaler is written as its
-// Error() string.  All other values are encoded with encoding/json.
+// Error() string.  All other values are encoded with encoding/json.  If
+// encoding/json returns an error, AppendAnyAttr appends the string "!ERROR:"
+// followed by the error text.
 func (w *Writer) AppendAnyAttr(key string, value any) {
 	if value == nil {
 		w.key(key)
@@ -265,6 +271,11 @@ func (w *Writer) AppendAnyAttr(key string, value any) {
 
 	data, err := json.Marshal(value)
 	if err != nil {
+		text := errorPrefix + err.Error()
+
+		w.key(key)
+		w.buf = appendString(w.buf, text)
+
 		return
 	}
 

@@ -243,8 +243,8 @@ func TestHandler_emptyGroupsAreNotWritten(t *testing.T) {
 	assert.NotContains(t, got, "req")
 }
 
-// When the mapper or the encoder elides every record attribute, the handler
-// does not write a group that has no other content.
+// When the mapper elides every record attribute, the handler does not write
+// a group that has no other content.
 func TestHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 	drop := func(_ []string, a slog.Attr) slog.Attr {
 		if a.Key == "password" {
@@ -264,23 +264,11 @@ func TestHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 			},
 			want: map[string]any{"svc": "api"},
 		},
-		"unencodable attr in nested groups": {
-			log: func(l *slog.Logger) {
-				l.WithGroup("a").WithGroup("b").Info("hello", slog.Any("ch", make(chan int)))
-			},
-			want: map[string]any{},
-		},
 		"prefix in the middle group": {
 			log: func(l *slog.Logger) {
 				l.WithGroup("a").With("x", "1").WithGroup("b").Info("hello", "password", "y")
 			},
 			want: map[string]any{"a": map[string]any{"x": "1"}},
-		},
-		"group attr with an unencodable member": {
-			log: func(l *slog.Logger) {
-				l.Info("hello", slog.Group("g", slog.Any("ch", make(chan int))), "kept", 1)
-			},
-			want: map[string]any{"kept": 1.0},
 		},
 	}
 
@@ -412,6 +400,57 @@ func TestHandler_replaceAttr(t *testing.T) {
 	assert.Equal(t, 1.0, got["n"])
 }
 
+// For a value that encoding/json cannot encode, the handler writes the text
+// "!ERROR:" and the error.  The value is content for the groups around it.
+func TestHandler_unencodableValueHasErrorText(t *testing.T) {
+	const text = "!ERROR:json: unsupported type: chan int"
+
+	tests := map[string]struct {
+		log  func(l *slog.Logger)
+		want map[string]any
+	}{
+		"top level": {
+			log: func(l *slog.Logger) {
+				l.Info("hello", slog.Any("ch", make(chan int)), "kept", 1)
+			},
+			want: map[string]any{"ch": text, "kept": 1.0},
+		},
+		"in nested groups": {
+			log: func(l *slog.Logger) {
+				l.WithGroup("a").WithGroup("b").Info("hello", slog.Any("ch", make(chan int)))
+			},
+			want: map[string]any{"a": map[string]any{"b": map[string]any{"ch": text}}},
+		},
+		"member of a group attr": {
+			log: func(l *slog.Logger) {
+				l.Info("hello", slog.Group("g", slog.Any("ch", make(chan int))))
+			},
+			want: map[string]any{"g": map[string]any{"ch": text}},
+		},
+		"from WithAttrs": {
+			log: func(l *slog.Logger) {
+				l.With(slog.Any("ch", make(chan int))).Info("hello")
+			},
+			want: map[string]any{"ch": text},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+
+			tc.log(slog.New(stdout.NewHandler(&buf)))
+
+			got := decodeLine(t, &buf)
+			delete(got, "severity")
+			delete(got, "message")
+			delete(got, "timestamp")
+
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestHandler_attrKinds(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -446,7 +485,7 @@ func TestHandler_attrKinds(t *testing.T) {
 	assert.Equal(t, map[string]any{"X": 1.0, "Y": 2.0}, got["p"])
 	assert.Contains(t, got, "nil")
 	assert.Nil(t, got["nil"])
-	assert.NotContains(t, got, "bad")
+	assert.Equal(t, "!ERROR:json: unsupported type: chan int", got["bad"])
 	assert.Equal(t, map[string]any{"k": "v"}, got["g"])
 	assert.NotContains(t, got, "empty")
 }

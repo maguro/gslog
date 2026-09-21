@@ -50,6 +50,9 @@ import (
 // these fields, the handler also discards a top-level attribute or group
 // that has one of these three keys.  In a record that does not have these
 // fields, the handler writes the attribute or group.
+//
+// For an attribute value that encoding/json cannot encode, the handler
+// writes the string "!ERROR:" followed by the error text.
 type Handler struct {
 	out   *lineWriter
 	level slog.Leveler
@@ -272,8 +275,9 @@ func (h *Handler) appendMapped(w *jbuf.Writer, a slog.Attr) {
 	h.appendAttr(w, a, len(h.groups) == 0)
 }
 
-// appendAttr appends the attribute as a JSON member.  An attribute that
-// cannot be written as JSON is not written.  At the top level, appendAttr
+// appendAttr appends the attribute as a JSON member.  For a value that
+// encoding/json cannot encode, the member is the string "!ERROR:" followed
+// by the error text.  At the top level, appendAttr
 // appends the attribute to the writer that Member returns for the key.
 func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 	v := a.Value.Resolve()

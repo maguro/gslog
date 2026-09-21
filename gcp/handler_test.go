@@ -1138,6 +1138,59 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 // TestWithReplaceAttr_seesBaggage verifies that the mapper sees each
 // baggage attribute.
+// For a value that encoding/json cannot encode, the handler writes the text
+// "!ERROR:" and the error.  The value is content for the groups around it.
+func TestHandler_unencodableValueHasErrorText(t *testing.T) {
+	const text = "!ERROR:json: unsupported type: chan int"
+
+	tests := map[string]struct {
+		log  func(l *slog.Logger)
+		want map[string]any
+	}{
+		"top level": {
+			log: func(l *slog.Logger) {
+				l.Info("hello", slog.Any("ch", make(chan int)), "kept", 1)
+			},
+			want: map[string]any{"ch": text, "kept": 1.0},
+		},
+		"in nested groups": {
+			log: func(l *slog.Logger) {
+				l.WithGroup("a").WithGroup("b").Info("hello", slog.Any("ch", make(chan int)))
+			},
+			want: map[string]any{"a": map[string]any{"b": map[string]any{"ch": text}}},
+		},
+		"member of a group attr": {
+			log: func(l *slog.Logger) {
+				l.Info("hello", slog.Group("g", slog.Any("ch", make(chan int))))
+			},
+			want: map[string]any{"g": map[string]any{"ch": text}},
+		},
+		"from WithAttrs": {
+			log: func(l *slog.Logger) {
+				l.With(slog.Any("ch", make(chan int))).Info("hello")
+			},
+			want: map[string]any{"ch": text},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got map[string]any
+
+			logger := gcp.LoggerFunc(func(e logging.Entry) {
+				payload, _ := e.Payload.(*structpb.Struct)
+				got = payload.AsMap()
+			})
+
+			tc.log(slog.New(gcp.NewHandler(logger)))
+
+			delete(got, "message")
+
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 	redact := func(_ []string, a slog.Attr) slog.Attr {
 		if strings.Contains(a.Key, "email") {

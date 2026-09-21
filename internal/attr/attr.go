@@ -30,13 +30,16 @@ import (
 	"m4o.io/gslog/internal/timefmt"
 )
 
+// errorPrefix is the start of the string that NewAny returns for a value that
+// encoding/json cannot encode.  log/slog uses the same text.
+const errorPrefix = "!ERROR:"
+
 //nolint:gochecknoglobals
 var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NULL_VALUE}}
 
-// DecorateWith adds the attribute to the Fields of the spb.Struct.  If
-// DecorateWith cannot map the attribute to a spb.Value, DecorateWith does
-// nothing.  DecorateWith maps an attribute of kind slog.KindAny with this
-// precedence:
+// DecorateWith adds the attribute to the Fields of the spb.Struct.
+// DecorateWith does nothing for a group with no attribute.  DecorateWith maps
+// an attribute of kind slog.KindAny with this precedence:
 //
 //   - If the value is a builtin.error and does not implement json.Marshaler,
 //     DecorateWith uses the Error() string.
@@ -44,7 +47,8 @@ var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NU
 //     value.
 //   - If DecorateWith can convert the value to a JSON object, DecorateWith
 //     translates that JSON object to a spb.Struct.
-//   - DecorateWith does nothing.
+//   - DecorateWith uses the string "!ERROR:" followed by the error text of
+//     encoding/json.
 func DecorateWith(payload *spb.Struct, attr slog.Attr) {
 	rv := attr.Value.Resolve()
 	if attr.Key == "" && rv.Any() == nil {
@@ -91,7 +95,7 @@ func ValToStruct(v slog.Value) (*spb.Value, bool) {
 
 		return NewGroupValue(v.Group()), true
 	case slog.KindAny:
-		return NewAny(v.Any())
+		return NewAny(v.Any()), true
 	default:
 		return nil, false
 	}
@@ -166,26 +170,35 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 	return NewStructValue(p)
 }
 
-// NewAny creates the spb.Value equivalent of the supplied any instance.
-func NewAny(a any) (*spb.Value, bool) {
+// NewAny creates the spb.Value equivalent of the supplied any instance.  For
+// an instance that encoding/json cannot encode, NewAny returns the string
+// "!ERROR:" followed by the error text.
+func NewAny(a any) *spb.Value {
 	if a == nil {
-		return nilValue, true
+		return nilValue
 	}
 
 	// If the value is an error but not a json.Marshaler, return the error
 	// text.
 	_, jm := a.(json.Marshaler)
 	if err, ok := a.(error); ok && !jm {
-		return NewStringValue(err.Error()), true
+		return NewStringValue(err.Error())
 	}
 
 	// The value can map directly to a spb.Value.
 	if nv, err := spb.NewValue(a); err == nil {
-		return nv, true
+		return nv
 	}
 
 	// Try to convert the value to a JSON object.
-	return AsJSON(a)
+	value, err := AsJSON(a)
+	if err != nil {
+		cause := errors.Cause(err)
+
+		return NewStringValue(errorPrefix + cause.Error())
+	}
+
+	return value
 }
 
 // NewTimeValue creates the spb.Value equivalent of the supplied time.Time instance.
@@ -196,17 +209,17 @@ func NewTimeValue(t time.Time) *spb.Value {
 }
 
 // AsJSON tries to convert the attribute a to a JSON object.  AsJSON then
-// maps that JSON object to a spb.Value.  AsJSON returns true for ok if the
-// conversion to JSON succeeds, and false if it does not.
-func AsJSON(a any) (*spb.Value, bool) {
+// maps that JSON object to a spb.Value.  AsJSON returns the error of ToJSON
+// if the conversion to JSON does not succeed.
+func AsJSON(a any) (*spb.Value, error) {
 	a, err := ToJSON(a)
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 
 	value, _ := spb.NewValue(a)
 
-	return value, true
+	return value, nil
 }
 
 // ToJSON converts an instance of any to a JSON object, map[string]interface{}.
