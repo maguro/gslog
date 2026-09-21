@@ -7,19 +7,10 @@ coverage:
       default:
         informational: true
 ignore:
-  # All 'pb.go's.
-  - "**/*.pb.go"
-  # Tests and test related files.
-  - "**/test"
-  - "**/testdata"
-  - "**/testutils"
-  - "benchmark"
-  - "interop"
-  # Other submodules.
-  - "cmd"
-  - "examples"
-  - "gcp"
-  - "security"
-  - "stats/opencensus"
+  # Directories that contain only tests and test data.
+  - "**/benchmark/**"
+  - "**/testdata/**"
+  # Helpers that only tests use.
+  - "internal/testhelp"
 comment:
   layout: "header, diff, files"
