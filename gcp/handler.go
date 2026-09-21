@@ -38,8 +38,10 @@ import (
 // Handler is a slog.Handler that writes to Google Cloud Logging through
 // the API client.
 //
-// A top-level attribute or group with the key "message" is replaced by the
-// message of the log call.
+// The handler writes the message of the log call at the key "message".  The
+// handler writes the error report of a record at the keys that Error
+// Reporting reads.  The handler replaces a top-level attribute or group that
+// has one of these keys.
 type Handler struct {
 	// log is a *logging.Logger, except in tests.
 	log   Logger
@@ -50,6 +52,7 @@ type Handler struct {
 	// SourceLocation field of the entry.
 	addSource       bool
 	entryAugmentors []entry.Augmentor
+	errorReporter   *entry.Reporter
 	replaceAttr     mapper.Mapper
 
 	payload *spb.Struct
@@ -77,6 +80,7 @@ func newHandlerWithOptions(logger Logger, opts *options.Options) *Handler {
 
 		addSource:       opts.AddSource,
 		entryAugmentors: opts.EntryAugmentors,
+		errorReporter:   opts.ErrorReporter,
 		replaceAttr:     mapper.Wrap(opts.ReplaceAttr),
 
 		payload: &spb.Struct{Fields: make(map[string]*spb.Value)},
@@ -118,6 +122,11 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	attr.DecorateWith(payload, a)
+
+	report, ok := h.errorReporter.For(record.Level)
+	if ok {
+		decorateErrorReport(payload, &report)
+	}
 
 	logEntry := toLogEntry(&e, &record, payload)
 
@@ -236,6 +245,7 @@ func (h *Handler) clone() *Handler {
 
 		addSource:       h.addSource,
 		entryAugmentors: h.entryAugmentors,
+		errorReporter:   h.errorReporter,
 		replaceAttr:     h.replaceAttr,
 
 		payload: h.payload,
@@ -265,6 +275,22 @@ func toLogEntry(e *entry.Entry, record *slog.Record, payload *spb.Struct) loggin
 	}
 
 	return logEntry
+}
+
+// decorateErrorReport sets the members that Error Reporting reads at the top
+// level of the payload.  The service context has the version only when the
+// version is not empty.
+func decorateErrorReport(payload *spb.Struct, report *entry.ErrorReport) {
+	serviceContext := &spb.Struct{Fields: make(map[string]*spb.Value)}
+	serviceContext.Fields[entry.ServiceKey] = attr.NewStringValue(report.Service)
+
+	if report.Version != "" {
+		serviceContext.Fields[entry.VersionKey] = attr.NewStringValue(report.Version)
+	}
+
+	payload.Fields[entry.ReportTypeKey] = attr.NewStringValue(entry.ReportTypeValue)
+	payload.Fields[entry.ServiceContextKey] = attr.NewStructValue(serviceContext)
+	payload.Fields[entry.StackTraceKey] = attr.NewStringValue(report.StackTrace)
 }
 
 // copyPath returns a copy of src with a new struct at each level of path.

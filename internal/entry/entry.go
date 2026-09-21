@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package entry contains the entry that a handler fills for one log record
-// from the context and the options.
 package entry
 
 import (

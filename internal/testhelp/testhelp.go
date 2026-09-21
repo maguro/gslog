@@ -16,8 +16,13 @@
 package testhelp
 
 import (
+	"log/slog"
 	"runtime"
 	"time"
+
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/entry"
+	"m4o.io/gslog/internal/options"
 )
 
 // Time is the fixed time of the test records.
@@ -33,4 +38,19 @@ func CallerPC(depth int) uintptr {
 	runtime.Callers(depth, pcs[:])
 
 	return pcs[0]
+}
+
+// WithErrorReport returns an option that gives the error report to each
+// record at level Error or higher.
+func WithErrorReport(report entry.ErrorReport) core.Option {
+	reporter := &entry.Reporter{
+		MinLevel: slog.LevelError,
+		Report: func() entry.ErrorReport {
+			return report
+		},
+	}
+
+	return func(o *options.Options) {
+		o.ErrorReporter = reporter
+	}
 }

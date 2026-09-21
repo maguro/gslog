@@ -39,6 +39,10 @@ type Options struct {
 
 	EntryAugmentors []entry.Augmentor
 
+	// ErrorReporter gives the error report for a record.  The handler
+	// writes no error report when ErrorReporter is nil.
+	ErrorReporter *entry.Reporter
+
 	// AddSource causes the handler to compute the source code position
 	// of the log statement.  The handler sets the position in the
 	// SourceLocation field of the entry.
@@ -91,6 +95,7 @@ func ApplyOptions(options ...OptionProcessor) *Options {
 		DefaultLogLevel:  levelUnknown,
 
 		EntryAugmentors: nil,
+		ErrorReporter:   nil,
 		AddSource:       false,
 		Level:           slog.LevelInfo,
 		ReplaceAttr:     nil,

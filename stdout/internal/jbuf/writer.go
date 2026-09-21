@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"m4o.io/gslog/core"
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
 	"m4o.io/gslog/internal/timefmt"
 )
@@ -66,13 +67,31 @@ type Writer struct {
 	// object.  pending holds the keys of the groups that have no member yet.
 	first   bool
 	pending []string
+
+	// hasReport is true when the record has an error report.
+	// separateReport is true for a writer from NewWriter.  That writer
+	// appends the top-level members with a key of the error report to
+	// reportMembers.  reportMembers is nil until the writer appends the
+	// first of these members.
+	hasReport      bool
+	separateReport bool
+	reportMembers  *Writer
 }
 
 // NewWriter returns a writer that appends to buf.  The writer does not open
 // a top-level object.  Use NewWriter to build the members that AppendRaw
-// takes.
+// takes.  The writer keeps the top-level members with a key of the error
+// report apart.  ReportMembers returns these members.
 func NewWriter(buf []byte) *Writer {
-	return &Writer{buf: buf, first: len(buf) == 0}
+	return &Writer{
+		buf:     buf,
+		first:   len(buf) == 0,
+		pending: nil,
+
+		hasReport:      false,
+		separateReport: true,
+		reportMembers:  nil,
+	}
 }
 
 // AllocWriter returns a writer from the pool.  The writer is at the start of
@@ -92,6 +111,37 @@ func ReleaseWriter(w *Writer) {
 	if cap(w.buf) <= maxPooledBuffer {
 		writerPool.Put(w)
 	}
+}
+
+// Member returns the writer for a top-level member with the key.  Member
+// returns nil for a member that the handler does not write.  The handler does
+// not write a member with a key that the agent reads.  In a record that has
+// an error report, the handler does not write a member with a key of the
+// error report.
+func (w *Writer) Member(key string) *Writer {
+	switch key {
+	case core.MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
+		agentSpanIDKey, agentTraceKey, agentTraceSampledKey:
+		return nil
+	case entry.ReportTypeKey, entry.ServiceContextKey, entry.StackTraceKey:
+		return w.reportMember()
+	default:
+		return w
+	}
+}
+
+// HasReport reports whether the record has an error report.
+func (w *Writer) HasReport() bool { return w.hasReport }
+
+// ReportMembers returns the serialized top-level members with a key of the
+// error report.  ReportMembers returns nil when the writer has no such
+// member.
+func (w *Writer) ReportMembers() []byte {
+	if w.reportMembers == nil {
+		return nil
+	}
+
+	return w.reportMembers.buf
 }
 
 // AppendRaw appends serialized members.  An empty slice appends nothing.
@@ -178,6 +228,22 @@ func (w *Writer) AppendSourceLocation(loc *slog.Source) {
 	w.buf = appendSourceLocation(w.buf, loc)
 }
 
+// AppendErrorReport appends the members that Error Reporting reads and sets
+// hasReport.  Call AppendErrorReport before the writer appends the message or
+// an attribute.
+func (w *Writer) AppendErrorReport(report *entry.ErrorReport) {
+	w.hasReport = true
+
+	w.key(entry.ReportTypeKey)
+	w.buf = appendString(w.buf, entry.ReportTypeValue)
+
+	w.key(entry.ServiceContextKey)
+	w.buf = appendServiceContext(w.buf, report)
+
+	w.key(entry.StackTraceKey)
+	w.buf = appendString(w.buf, report.StackTrace)
+}
+
 // AppendAnyAttr appends an attribute of kind slog.KindAny.  A nil value is
 // null.  An error that does not implement json.Marshaler is written as its
 // Error() string.  All other values are encoded with encoding/json.
@@ -227,6 +293,33 @@ func (w *Writer) reset() {
 	w.buf = append(w.buf[:0], '{')
 	w.first = true
 	w.pending = w.pending[:0]
+	w.hasReport = false
+}
+
+// reportMember returns the writer for a top-level member with a key of the
+// error report.  reportMember returns nil when the record has an error
+// report.
+func (w *Writer) reportMember() *Writer {
+	switch {
+	case w.hasReport:
+		return nil
+	case !w.separateReport:
+		return w
+	}
+
+	if w.reportMembers == nil {
+		w.reportMembers = &Writer{
+			buf:     nil,
+			first:   true,
+			pending: nil,
+
+			hasReport:      false,
+			separateReport: false,
+			reportMembers:  nil,
+		}
+	}
+
+	return w.reportMembers
 }
 
 // key appends the separator, if needed, and the key.
@@ -256,15 +349,22 @@ func (w *Writer) openPending() {
 	w.pending = w.pending[:0]
 }
 
-// IsAgentKey reports whether the agent reads the key.
-func IsAgentKey(key string) bool {
-	switch key {
-	case core.MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
-		agentSpanIDKey, agentTraceKey, agentTraceSampledKey:
-		return true
-	default:
-		return false
+// JoinMembers returns the serialized members of a followed by the serialized
+// members of b.  JoinMembers does not change a.
+func JoinMembers(a, b []byte) []byte {
+	if len(a) == 0 {
+		return b
 	}
+
+	if len(b) == 0 {
+		return a
+	}
+
+	joined := make([]byte, 0, len(a)+len(b)+1)
+	joined = append(joined, a...)
+	joined = append(joined, ',')
+
+	return append(joined, b...)
 }
 
 // appendLabels appends the labels as a JSON object with sorted keys.
@@ -296,6 +396,23 @@ func appendSourceLocation(buf []byte, loc *slog.Source) []byte {
 	buf = append(buf, '"', ',')
 	buf = appendKey(buf, "function")
 	buf = appendString(buf, loc.Function)
+
+	return append(buf, '}')
+}
+
+// appendServiceContext appends the service context of the error report as a
+// JSON object.  The object has the version only when the version is not
+// empty.
+func appendServiceContext(buf []byte, report *entry.ErrorReport) []byte {
+	buf = append(buf, '{')
+	buf = appendKey(buf, entry.ServiceKey)
+	buf = appendString(buf, report.Service)
+
+	if report.Version != "" {
+		buf = append(buf, ',')
+		buf = appendKey(buf, entry.VersionKey)
+		buf = appendString(buf, report.Version)
+	}
 
 	return append(buf, '}')
 }

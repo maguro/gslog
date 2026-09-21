@@ -35,20 +35,37 @@ import (
 // line of JSON.  The line has the structured logging format that the Google
 // Cloud logging agent reads.
 //
-// A top-level attribute or group with the same key as a field that the agent
-// reads, such as "severity" or "message", is not written.
+// The handler writes the fields that the agent reads.  The handler discards
+// a top-level attribute or group that has the key of one of these fields:
+//
+//   - "severity", "message", and "timestamp"
+//   - "logging.googleapis.com/labels"
+//   - "logging.googleapis.com/sourceLocation"
+//   - "logging.googleapis.com/spanId"
+//   - "logging.googleapis.com/trace"
+//   - "logging.googleapis.com/trace_sampled"
+//
+// The errorreporting.WithService option causes the handler to write the
+// fields "@type", "serviceContext", and "stack_trace".  In a record that has
+// these fields, the handler also discards a top-level attribute or group
+// that has one of these three keys.  In a record that does not have these
+// fields, the handler writes the attribute or group.
 type Handler struct {
 	out   *lineWriter
 	level slog.Leveler
 
 	addSource       bool
 	entryAugmentors []entry.Augmentor
+	errorReporter   *entry.Reporter
 	replaceAttr     mapper.Mapper
 
 	// groups holds the open group names.  prefix[i] holds the serialized
-	// attributes at group level i, without a leading comma.
-	groups []string
-	prefix [][]byte
+	// attributes at group level i, without a leading comma.  reportPrefix
+	// holds the serialized top-level attributes with a key of the error
+	// report, without a leading comma.
+	groups       []string
+	prefix       [][]byte
+	reportPrefix []byte
 }
 
 var _ slog.Handler = (*Handler)(nil)
@@ -68,10 +85,12 @@ func NewHandler(w io.Writer, opts ...core.Option) *Handler {
 
 		addSource:       o.AddSource,
 		entryAugmentors: o.EntryAugmentors,
+		errorReporter:   o.ErrorReporter,
 		replaceAttr:     mapper.Wrap(o.ReplaceAttr),
 
-		groups: nil,
-		prefix: [][]byte{nil},
+		groups:       nil,
+		prefix:       [][]byte{nil},
+		reportPrefix: nil,
 	}
 }
 
@@ -89,6 +108,10 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	w := jbuf.AllocWriter()
 	defer jbuf.ReleaseWriter(w)
 
+	if report, ok := h.errorReporter.For(record.Level); ok {
+		w.AppendErrorReport(&report)
+	}
+
 	h.appendHeader(w, &e, &record)
 	h.appendBody(w, &record, e.Attrs)
 
@@ -104,7 +127,9 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 }
 
 // WithAttrs returns a copy of the handler.  The copy serializes attrs once
-// and writes the result with each record.
+// and writes the result with each record.  The copy writes a top-level
+// attribute with a key of the error report only with a record that has no
+// error report.
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	depth := len(h.groups)
 	prefix := slices.Clone(h.prefix[depth])
@@ -116,6 +141,7 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 	handler2 := h.clone()
 	handler2.prefix[depth] = w.Buf()
+	handler2.reportPrefix = jbuf.JoinMembers(h.reportPrefix, w.ReportMembers())
 
 	return handler2
 }
@@ -143,10 +169,12 @@ func (h *Handler) clone() *Handler {
 
 		addSource:       h.addSource,
 		entryAugmentors: h.entryAugmentors,
+		errorReporter:   h.errorReporter,
 		replaceAttr:     h.replaceAttr,
 
-		groups: slices.Clip(h.groups),
-		prefix: slices.Clone(h.prefix),
+		groups:       slices.Clip(h.groups),
+		prefix:       slices.Clone(h.prefix),
+		reportPrefix: h.reportPrefix,
 	}
 }
 
@@ -183,15 +211,15 @@ func (h *Handler) appendHeader(w *jbuf.Writer, e *entry.Entry, record *slog.Reco
 	}
 }
 
-// appendMessage appends the message.  The handler does not write a renamed
-// message with a key that the agent reads.
+// appendMessage appends the message.  appendMessage does not write a renamed
+// message when Member returns nil for the new key.
 func (h *Handler) appendMessage(w *jbuf.Writer, record *slog.Record) {
 	message := slog.String(core.MessageKey, record.Message)
 	if h.replaceAttr != nil {
 		message = h.replaceAttr(nil, message)
 	}
 
-	if message.Key != core.MessageKey && jbuf.IsAgentKey(message.Key) {
+	if message.Key != core.MessageKey && w.Member(message.Key) == nil {
 		return
 	}
 
@@ -200,13 +228,17 @@ func (h *Handler) appendMessage(w *jbuf.Writer, record *slog.Record) {
 
 // appendBody appends the serialized prefixes, the attributes of the record,
 // and then extra.  Each group level is one nested object.  A group with no
-// content at or below its level is not written.  A top-level group with a
-// key that the agent reads is not written.
+// content at or below its level is not written.  appendBody does not write
+// the groups when Member returns nil for the key of the top-level group.
 func (h *Handler) appendBody(w *jbuf.Writer, record *slog.Record, extra []slog.Attr) {
 	w.AppendRaw(h.prefix[0])
 
+	if len(h.reportPrefix) > 0 && !w.HasReport() {
+		w.AppendRaw(h.reportPrefix)
+	}
+
 	last := len(h.groups)
-	if last > 0 && jbuf.IsAgentKey(h.groups[0]) {
+	if last > 0 && w.Member(h.groups[0]) == nil {
 		return
 	}
 
@@ -241,8 +273,8 @@ func (h *Handler) appendMapped(w *jbuf.Writer, a slog.Attr) {
 }
 
 // appendAttr appends the attribute as a JSON member.  An attribute that
-// cannot be written as JSON is not written.  At the top level, an attribute
-// with a key that the agent reads is not written.
+// cannot be written as JSON is not written.  At the top level, appendAttr
+// appends the attribute to the writer that Member returns for the key.
 func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 	v := a.Value.Resolve()
 
@@ -256,8 +288,11 @@ func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 		return
 	}
 
-	if topLevel && jbuf.IsAgentKey(a.Key) {
-		return
+	if topLevel {
+		w = w.Member(a.Key)
+		if w == nil {
+			return
+		}
 	}
 
 	if v.Kind() == slog.KindAny {
@@ -270,7 +305,9 @@ func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 }
 
 // appendGroupAttr appends a group attribute as a nested object.  A group
-// with an empty key is written in the current object.
+// with an empty key is written in the current object.  At the top level,
+// appendGroupAttr appends the group to the writer that Member returns for the
+// key.
 func (h *Handler) appendGroupAttr(w *jbuf.Writer, key string, attrs []slog.Attr, topLevel bool) {
 	if key == "" {
 		for _, a := range attrs {
@@ -280,8 +317,11 @@ func (h *Handler) appendGroupAttr(w *jbuf.Writer, key string, attrs []slog.Attr,
 		return
 	}
 
-	if topLevel && jbuf.IsAgentKey(key) {
-		return
+	if topLevel {
+		w = w.Member(key)
+		if w == nil {
+			return
+		}
 	}
 
 	w.OpenGroup(key)

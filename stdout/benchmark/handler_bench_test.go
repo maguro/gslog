@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stdout_test
+package benchmark_test
 
 import (
 	"context"

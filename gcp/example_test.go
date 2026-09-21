@@ -31,6 +31,7 @@ import (
 	spb "google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog/core"
+	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/otel"
@@ -184,7 +185,7 @@ func ExampleNewHandler_withK8sPodinfo() {
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  A baggage
 // attribute has precedence over an attribute that already has the same key.
-func ExampleNewHandler_withOpentelemetryBaggage() {
+func ExampleNewHandler_withOpenTelemetryBaggage() {
 	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
 	l := slog.New(h)
 
@@ -218,7 +219,7 @@ func PrintTracing(e logging.Entry) {
 // With the otel.WithOtelTracing() option, gcp.Handler adds the
 // OpenTelemetry trace.SpanContext information in the context to the tracing
 // fields of the logging.Entry.
-func ExampleNewHandler_withOpentelemetryTrace() {
+func ExampleNewHandler_withOpenTelemetryTrace() {
 	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
 	l := slog.New(h)
 
@@ -260,7 +261,7 @@ func ExampleNewHandler_withSourceAdded() {
 
 	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"261"}
+	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"262"}
 }
 
 // RemovePassword is a core.AttrMapper that elides password attributes.
@@ -330,4 +331,33 @@ func ExampleNewHandler_withDefaultLogLeveler() {
 	l.Error("The rain in Spain lies mainly on the plane.")
 
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
+}
+
+// PrintErrorReport is a gcp.Logger stub that prints the fields "@type" and
+// "serviceContext" of the logging.Entry Payload.  The stack trace is
+// different on each run.
+func PrintErrorReport(e logging.Entry) {
+	payload := e.Payload.(*spb.Struct).AsMap()
+
+	report := map[string]any{
+		"@type":          payload["@type"],
+		"serviceContext": payload["serviceContext"],
+	}
+
+	b, _ := json.Marshal(report)
+
+	fmt.Println(string(b))
+}
+
+// With the errorreporting.WithService() option, gcp.Handler writes the
+// fields that Google Cloud Error Reporting reads.  The handler writes the
+// fields in the payload of each record at level Error or higher.  The field
+// "stack_trace" holds the stack of the log call.
+func ExampleNewHandler_withErrorReporting() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintErrorReport), errorreporting.WithService("checkout", "v1.2.0"))
+	l := slog.New(h)
+
+	l.Error("Payment failed")
+
+	// Output: {"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
 }

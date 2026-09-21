@@ -28,6 +28,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"m4o.io/gslog/core"
+	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/otel"
 	"m4o.io/gslog/stdout"
@@ -114,7 +115,7 @@ func ExampleNewHandler_withK8sPodinfo() {
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  The
 // handler writes the baggage attributes after the attributes of the record.
-func ExampleNewHandler_withOpentelemetryBaggage() {
+func ExampleNewHandler_withOpenTelemetryBaggage() {
 	h := stdout.NewHandler(os.Stdout, otel.WithOtelBaggage())
 
 	ctx := context.Background()
@@ -128,7 +129,7 @@ func ExampleNewHandler_withOpentelemetryBaggage() {
 // With the otel.WithOtelTracing() option, stdout.Handler adds the
 // OpenTelemetry trace.SpanContext information in the context to the tracing
 // fields of the line.
-func ExampleNewHandler_withOpentelemetryTrace() {
+func ExampleNewHandler_withOpenTelemetryTrace() {
 	h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
 
 	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
@@ -175,7 +176,7 @@ func ExampleNewHandler_withSourceAdded() {
 
 	fmt.Println(string(b))
 
-	// Output: {"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"159"}
+	// Output: {"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"160"}
 }
 
 // RemovePassword is a core.AttrMapper that elides password attributes.
@@ -245,4 +246,34 @@ func ExampleNewHandler_withDefaultLogLeveler() {
 	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
 
 	// Output: false true
+}
+
+// With the errorreporting.WithService() option, stdout.Handler writes the
+// fields that Google Cloud Error Reporting reads.  The handler writes the
+// fields in each record at level Error or higher.  The field "stack_trace"
+// holds the stack of the log call.
+func ExampleNewHandler_withErrorReporting() {
+	var buf bytes.Buffer
+
+	h := stdout.NewHandler(&buf, errorreporting.WithService("checkout", "v1.2.0"))
+	l := slog.New(h)
+
+	l.Error("Payment failed")
+
+	// The stack trace is different on each run.  The example prints the
+	// other fields.
+	var line map[string]any
+
+	_ = json.Unmarshal(buf.Bytes(), &line)
+
+	report := map[string]any{
+		"@type":          line["@type"],
+		"serviceContext": line["serviceContext"],
+	}
+
+	b, _ := json.Marshal(report)
+
+	fmt.Println(string(b))
+
+	// Output: {"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
 }
