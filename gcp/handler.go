@@ -45,6 +45,9 @@ import (
 //
 // For an attribute value that encoding/json cannot encode, the handler
 // writes the string "!ERROR:" followed by the error text.
+//
+// The handler sets the HTTPRequest field of the logging.Entry from the
+// context of the log call.  See WithHTTPRequest.
 type Handler struct {
 	// log is a *logging.Logger, except in tests.
 	log   Logger
@@ -132,6 +135,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	logEntry := toLogEntry(&e, &record, payload)
+	logEntry.HTTPRequest = httpRequestFrom(ctx)
 
 	if logEntry.Severity >= logging.Critical {
 		if err := h.log.LogSync(ctx, logEntry); err != nil {

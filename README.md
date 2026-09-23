@@ -199,6 +199,31 @@ if err != nil {
 }
 ```
 
+### Log an HTTP Request
+
+A Cloud Logging entry has a typed `httpRequest` field. The Logs Explorer
+shows this field in the summary line of the entry: the method, the status, the
+size, and the latency of the request.
+
+Put a `*logging.HTTPRequest` in the context of the log call with
+`gcp.WithHTTPRequest`. The handler sets the field from that context:
+
+```go
+request := &logging.HTTPRequest{Request: r, Status: status, ResponseSize: size, Latency: latency}
+ctx := gcp.WithHTTPRequest(r.Context(), request)
+
+logger.InfoContext(ctx, "Request completed")
+```
+
+Each record that a log call writes with that context has the field. The
+`ExampleWithHTTPRequest` example in the `gcp` package shows an HTTP handler
+that logs one record for each request.
+
+With the `stdout` handler, write a group attribute that has the key
+`httpRequest` and the member names of the
+[HttpRequest](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#HttpRequest)
+type. The logging agent moves that group to the field.
+
 ## Structured Logging to Stdout
 
 On Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent, a logging
