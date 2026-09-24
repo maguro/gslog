@@ -222,7 +222,7 @@ func AsJSON(a any) (*spb.Value, error) {
 	return value, nil
 }
 
-// ToJSON converts an instance of any to a JSON object, map[string]interface{}.
+// ToJSON converts an instance of any to a JSON object, map[string]any.
 // ToJSON returns an error if it cannot encode the instance as JSON.
 func ToJSON(a any) (any, error) {
 	var buf bytes.Buffer

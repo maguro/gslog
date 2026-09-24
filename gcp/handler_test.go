@@ -1332,11 +1332,11 @@ func TestJson(t *testing.T) {
 	assert.True(t, ok)
 
 	jb := []byte(raw)
-	var m map[string]interface{}
+	var m map[string]any
 	err := json.Unmarshal(jb, &m)
 	assert.NoError(t, err)
 }
 
-func strip(rj json.RawMessage) interface{} {
+func strip(rj json.RawMessage) any {
 	return rj
 }

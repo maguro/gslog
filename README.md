@@ -266,7 +266,7 @@ There are several ways to map the `slog.Record` to a GCL entry,
 `logging.Entry`.
 
 - a JSON string
-- a value that can be marshaled to a JSON object, like a `map[string]interface{}` or a `struct`
+- a value that can be marshaled to a JSON object, like a `map[string]any` or a `struct`
 - a `json.RawMessage`
 - a Protobuf `*structpb.Struct`
 - a Protobuf `*anypb.Any`
@@ -286,7 +286,7 @@ examines the Go type of the value and treats the string as a flat text message.
 
 For a value that is not a string and that can be marshaled to a JSON object,
 the GCL logger first marshals the value to a JSON object,
-`map[string]interface{}`. The GCL logger then translates that JSON object to
+`map[string]any`. The GCL logger then translates that JSON object to
 an equivalent `structpb.Struct` Protobuf message. The GCL logger does this
 marshalling and translation again for every message that it logs.
 

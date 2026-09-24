@@ -87,7 +87,7 @@ var (
 		Engineer:  true,
 	}
 
-	uJson = map[string]interface{}{
+	uJson = map[string]any{
 		"id":         "user-12234",
 		"first_name": "Jan",
 		"last_name":  "Doe",

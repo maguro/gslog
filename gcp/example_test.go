@@ -107,7 +107,7 @@ type User struct {
 func PrintJsonPayload(e logging.Entry) {
 	b, _ := protojson.Marshal(e.Payload.(*spb.Struct))
 	// Do another JSON round-trip, because protojson randomizes its output.
-	var j map[string]interface{}
+	var j map[string]any
 	_ = json.Unmarshal(b, &j)
 	b, _ = json.Marshal(j)
 	fmt.Println(string(b))
@@ -246,7 +246,7 @@ func PrintSourceLocation(e logging.Entry) {
 
 	b, _ := protojson.Marshal(sl)
 	// Do another JSON round-trip, because protojson randomizes its output.
-	var j map[string]interface{}
+	var j map[string]any
 	_ = json.Unmarshal(b, &j)
 	b, _ = json.Marshal(j)
 	fmt.Println(string(b))
