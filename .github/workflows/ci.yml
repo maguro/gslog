@@ -79,6 +79,10 @@ jobs:
         run: make check-fmt
         shell: bash
 
+      - name: Check the examples document
+        run: make check-docs
+        shell: bash
+
   coverage:
     runs-on: ubuntu-latest
     steps:

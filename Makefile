@@ -1,7 +1,10 @@
 GOLANGCI_LINT_VERSION := v2.13.2
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
-.PHONY: all build test coverage lint fmt check-fmt tidy clean check ci
+EXAMPLES_DOC := docs/examples.md
+EXAMPLE_PACKAGES := stdout gcp otel
+
+.PHONY: all build test coverage lint fmt check-fmt docs check-docs tidy clean check ci
 
 all: build check
 
@@ -27,6 +30,12 @@ fmt: $(GOLANGCI_LINT)
 check-fmt: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) fmt --diff
 
+docs:
+	go run ./internal/cmd/exampledoc -o $(EXAMPLES_DOC) $(EXAMPLE_PACKAGES)
+
+check-docs:
+	go run ./internal/cmd/exampledoc -check -o $(EXAMPLES_DOC) $(EXAMPLE_PACKAGES)
+
 tidy:
 	go mod tidy
 
@@ -35,6 +44,6 @@ clean:
 	@test -x $(GOLANGCI_LINT) && $(GOLANGCI_LINT) cache clean || true
 	go clean -testcache
 
-check: test lint check-fmt
+check: test lint check-fmt check-docs
 
 ci: check coverage

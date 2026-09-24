@@ -1,0 +1,15 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "gslog",
+  "description": "Go log/slog handlers that write Google Cloud Logging entries, with trace linking, OpenTelemetry baggage, Kubernetes pod labels, and Error Reporting fields.",
+  "excludeFolders": [".claude", ".github", "internal", "k8s/testdata"],
+  "excludeFiles": ["AGENTS.md", "CLAUDE.md", "SECURITY.md"],
+  "rules": [
+    "Import m4o.io/gslog/stdout or m4o.io/gslog/gcp. The root m4o.io/gslog package is deprecated.",
+    "Use the stdout handler when a logging agent reads stdout: Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent.",
+    "Use the gcp handler when no logging agent reads stdout. It sends entries with the cloud.google.com/go/logging client.",
+    "All options from the core, otel, otel/detect, k8s, and errorreporting packages work with both handlers.",
+    "Log with a context, such as logger.InfoContext(ctx, ...), to get the trace fields. The handler reads the span only from the context of the log call.",
+    "Close the logging.Client before the program exits. This flushes the entries that the gcp handler buffers."
+  ]
+}

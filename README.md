@@ -60,6 +60,14 @@ Add `otel.WithOtelTracing` and log with a context that holds an OpenTelemetry
 span:
 
 ```go
+import (
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog/otel"
+	"m4o.io/gslog/stdout"
+)
+
 h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
 logger := slog.New(h)
 
@@ -78,6 +86,13 @@ To get the project ID from the metadata server, as the
 `m4o.io/gslog/otel/detect` package:
 
 ```go
+import (
+	"os"
+
+	"m4o.io/gslog/otel/detect"
+	"m4o.io/gslog/stdout"
+)
+
 h := stdout.NewHandler(os.Stdout, detect.WithOtelTracing())
 ```
 
@@ -90,6 +105,12 @@ in the context of each request. A program with no SDK can read the W3C
 `traceparent` header with a small wrapper:
 
 ```go
+import (
+	"net/http"
+
+	"go.opentelemetry.io/otel/propagation"
+)
+
 func withTraceContext(next http.Handler) http.Handler {
 	propagator := propagation.TraceContext{}
 
@@ -103,9 +124,8 @@ func withTraceContext(next http.Handler) http.Handler {
 }
 ```
 
-`propagation` is `go.opentelemetry.io/otel/propagation`. The
-`ExampleWithOtelTracing_httpServer` example in the `otel` package runs this
-wrapper.
+The [`otel.WithOtelTracing` (httpServer)](docs/examples.md#otelwithoteltracing-httpserver)
+example runs this wrapper.
 
 ### Which Handler
 
@@ -154,48 +174,51 @@ from other frameworks:
 
 ## Using the gcp Handler
 
-First, create a [Google Cloud Logging](https://pkg.go.dev/cloud.google.com/go/logging)
-`logging.Client`. Use this client throughout your application:
+Create one [Google Cloud Logging](https://pkg.go.dev/cloud.google.com/go/logging)
+`logging.Client`, and use this client throughout your application. Create a
+`gcp.Handler` with a `logging.Logger` from the client. Pass the handler to
+`slog.New()` to get a `slog` logger.
+
+The logger adds log entries to a buffer. The logger flushes the buffer to the
+Cloud Logging service periodically, automatically, and asynchronously. The
+handler sends entries at Critical level or higher synchronously. Close the
+client before the program exits. This flushes the buffered log entries.
 
 ```go
-ctx := context.Background()
-client, err := logging.NewClient(ctx, "my-project")
-if err != nil {
-	// TODO: Handle error.
-}
-```
+package main
 
-Usually, you want to add log entries to a buffer. The buffer is flushed to the
-Cloud Logging service periodically, automatically, and asynchronously. Create a
-`gcp.Handler` with the logger. Pass the handler to `slog.New()` to get a
-`slog` logger.
+import (
+	"context"
+	"log"
+	"log/slog"
 
-```go
-import "m4o.io/gslog/gcp"
+	"cloud.google.com/go/logging"
 
-loggger := client.Logger("my-log")
+	"m4o.io/gslog/core"
+	"m4o.io/gslog/gcp"
+)
 
-h := gcp.NewHandler(loggger)
-l := slog.New(h)
+func main() {
+	ctx := context.Background()
 
-l.Info("How now brown cow?")
-```
+	client, err := logging.NewClient(ctx, "my-project")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-The handler sends entries at Critical level or higher synchronously.
+	defer func() {
+		cerr := client.Close()
+		if cerr != nil {
+			log.Print(cerr)
+		}
+	}()
 
-```go
-import "m4o.io/gslog/core"
+	lg := client.Logger("my-log")
+	h := gcp.NewHandler(lg)
+	logger := slog.New(h)
 
-l.Log(context.Background(), core.LevelCritical, "Danger, Will Robinson!")
-```
-
-Close the client before the program exits. This flushes the buffered log
-entries.
-
-```go
-err = client.Close()
-if err != nil {
-   // TODO: Handle error.
+	logger.Info("How now brown cow?")
+	logger.Log(ctx, core.LevelCritical, "Danger, Will Robinson!")
 }
 ```
 
@@ -209,6 +232,12 @@ Put a `*logging.HTTPRequest` in the context of the log call with
 `gcp.WithHTTPRequest`. The handler sets the field from that context:
 
 ```go
+import (
+	"cloud.google.com/go/logging"
+
+	"m4o.io/gslog/gcp"
+)
+
 request := &logging.HTTPRequest{Request: r, Status: status, ResponseSize: size, Latency: latency}
 ctx := gcp.WithHTTPRequest(r.Context(), request)
 
@@ -216,8 +245,8 @@ logger.InfoContext(ctx, "Request completed")
 ```
 
 Each record that a log call writes with that context has the field. The
-`ExampleWithHTTPRequest` example in the `gcp` package shows an HTTP handler
-that logs one record for each request.
+[`gcp.WithHTTPRequest`](docs/examples.md#gcpwithhttprequest) example shows an
+HTTP handler that logs one record for each request.
 
 With the `stdout` handler, write a group attribute that has the key
 `httpRequest` and the member names of the
@@ -259,6 +288,9 @@ options from the `core` package:
 | `detect.WithOtelTracing()`             |                    | The same as `otel.WithOtelTracing(id)`, with the project ID from the metadata server and then from `GOOGLE_CLOUD_PROJECT`. If it finds no project ID, the handler includes no tracing. The `detect` package is `m4o.io/gslog/otel/detect`. |
 | `k8s.WithPodinfoLabels(root)`          |      `string`      | Causes the handler to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The handler expects the labels file in the directory that root specifies. The file must be named "labels", as the Kubernetes Downward API for Pods specifies. |
 | `errorreporting.WithService(service, version)` | `string`, `string` | Causes the handler to include the fields that [Google Cloud Error Reporting](https://cloud.google.com/error-reporting/docs/formatting-error-messages) reads in each record at level Error or higher: the `@type` of a `ReportedErrorEvent`, the `serviceContext`, and a `stack_trace`. The stack trace is the stack of the log call. |
+
+The [examples](docs/examples.md) show the options of the `core`, `otel`,
+`k8s`, and `errorreporting` packages in complete programs, with their output.
 
 ## Design Notes
 
