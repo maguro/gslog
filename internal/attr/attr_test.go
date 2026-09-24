@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"math/big"
 	"strconv"
 	"testing"
 	"time"
@@ -167,12 +168,45 @@ func TestToJson(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			json, err := attr.ToJSON(tc.attr)
+			j, err := attr.ToJSON(tc.attr)
 			if tc.err {
 				assert.Error(t, err)
 			} else {
-				assert.Equal(t, tc.json, json)
+				assert.Equal(t, tc.json, j)
 			}
+		})
+	}
+}
+
+// TestToJSONDecodeError verifies that ToJSON returns an error for a value
+// that json.Encoder can encode but json.Unmarshal cannot decode.  ToJSON
+// decodes the JSON text into a variable of type any.  json.Unmarshal decodes
+// each JSON number as a float64.  json.Unmarshal returns an error for a
+// number that is out of the float64 range.  json.Encoder does not check the
+// range of a json.Number, or of a number that a MarshalJSON method returns.
+//
+// json.Unmarshal has a maximum nesting depth of 10000.  In Go 1.26,
+// json.Encoder does not apply this limit to nested Go values.
+func TestToJSONDecodeError(t *testing.T) {
+	hugeInt := new(big.Int).Exp(big.NewInt(10), big.NewInt(400), nil)
+
+	var deep any
+	for range 10_001 {
+		deep = []any{deep}
+	}
+
+	tests := map[string]any{
+		"json.Number out of float64 range":  json.Number("1e400"),
+		"big.Int out of float64 range":      hugeInt,
+		"map field out of float64 range":    map[string]any{"a": json.Number("1e400"), "b": 2},
+		"nesting deeper than decoder limit": deep,
+	}
+
+	for name, a := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := attr.ToJSON(a)
+			assert.Error(t, err)
+			assert.Nil(t, got)
 		})
 	}
 }
@@ -209,6 +243,12 @@ func TestValToStruct(t *testing.T) {
 
 	cycleText := "!ERROR:" + cycleErr.Error()
 
+	var decoded any
+	rangeErr := json.Unmarshal([]byte("1e400"), &decoded)
+	require.Error(t, rangeErr)
+
+	rangeText := "!ERROR:" + rangeErr.Error()
+
 	tests := map[string]struct {
 		attr  slog.Value
 		value *structpb.Value
@@ -232,6 +272,7 @@ func TestValToStruct(t *testing.T) {
 		"any error":              {slog.AnyValue(errors.New("ouch")), attr.NewStringValue("ouch"), true},
 		"any with no JSON form":  {slog.AnyValue(circular), attr.NewStringValue(cycleText), true},
 		"any channel":            {slog.AnyValue(make(chan int)), attr.NewStringValue("!ERROR:json: unsupported type: chan int"), true},
+		"any json.Number 1e400":  {slog.AnyValue(json.Number("1e400")), attr.NewStringValue(rangeText), true},
 	}
 
 	for name, tc := range tests {

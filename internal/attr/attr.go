@@ -30,8 +30,8 @@ import (
 	"m4o.io/gslog/internal/timefmt"
 )
 
-// errorPrefix is the start of the string that NewAny returns for a value that
-// encoding/json cannot encode.  log/slog uses the same text.
+// errorPrefix is the start of the string that NewAny returns for an
+// encoding/json error.  log/slog uses the same text.
 const errorPrefix = "!ERROR:"
 
 //nolint:gochecknoglobals
@@ -170,9 +170,9 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 	return NewStructValue(p)
 }
 
-// NewAny creates the spb.Value equivalent of the supplied any instance.  For
-// an instance that encoding/json cannot encode, NewAny returns the string
-// "!ERROR:" followed by the error text.
+// NewAny creates the spb.Value equivalent of the supplied any instance.  If
+// encoding/json cannot encode the instance, or cannot decode the JSON of the
+// instance, NewAny returns the string "!ERROR:" followed by the error text.
 func NewAny(a any) *spb.Value {
 	if a == nil {
 		return nilValue
@@ -223,7 +223,8 @@ func AsJSON(a any) (*spb.Value, error) {
 }
 
 // ToJSON converts an instance of any to a JSON object, map[string]any.
-// ToJSON returns an error if it cannot encode the instance as JSON.
+// ToJSON returns an error if it cannot encode the instance as JSON, or cannot
+// decode that JSON.
 func ToJSON(a any) (any, error) {
 	var buf bytes.Buffer
 
@@ -234,7 +235,9 @@ func ToJSON(a any) (any, error) {
 	}
 
 	var result any
-	_ = json.Unmarshal(buf.Bytes(), &result)
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		return nil, errors.Wrap(err, "unable to decode attr")
+	}
 
 	return result, nil
 }
