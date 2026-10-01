@@ -3,11 +3,11 @@ module m4o.io/gslog
 go 1.26.0
 
 require (
-	cloud.google.com/go/compute/metadata v0.9.0
-	cloud.google.com/go/logging v1.19.1
-	github.com/magiconair/properties v1.18.11
-	github.com/onsi/ginkgo/v2 v2.32.2
-	github.com/onsi/gomega v1.40.0
+	cloud.google.com/go/compute/metadata v0.10.0
+	cloud.google.com/go/logging v1.20.0
+	github.com/magiconair/properties v1.18.12
+	github.com/onsi/ginkgo/v2 v2.33.0
+	github.com/onsi/gomega v1.44.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/otel v1.46.0
