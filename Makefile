@@ -1,10 +1,11 @@
 GOLANGCI_LINT_VERSION := v2.15.0
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
+GOVULNCHECK_VERSION := v1.9.0
 
 EXAMPLES_DOC := docs/examples.md
 EXAMPLE_PACKAGES := stdout gcp otel
 
-.PHONY: all build test coverage lint fmt check-fmt docs check-docs tidy clean check ci
+.PHONY: all build test coverage lint fmt check-fmt vuln docs check-docs tidy clean check ci
 
 all: build check
 
@@ -29,6 +30,9 @@ fmt: $(GOLANGCI_LINT)
 
 check-fmt: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) fmt --diff
+
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
 
 docs:
 	go run ./internal/cmd/exampledoc -o $(EXAMPLES_DOC) $(EXAMPLE_PACKAGES)
