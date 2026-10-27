@@ -102,29 +102,29 @@ func TestDetectProjectID(t *testing.T) {
 	}
 }
 
-func TestWithOtelTracing_detectedProjectID(t *testing.T) {
+func TestWithTracing_detectedProjectID(t *testing.T) {
 	source := fakeSource("detected", nil, "")
 
-	e := traceOf(t, withOtelTracing(source))
+	e := traceOf(t, withTracing(source))
 
 	assert.Equal(t, "projects/detected/traces/52fc1643a9381fc674742bb0067101e7", e.Trace)
 	assert.Equal(t, "d3e9e8c51cb190df", e.SpanID)
 	assert.True(t, e.TraceSampled)
 }
 
-func TestWithOtelTracing_noProjectID(t *testing.T) {
+func TestWithTracing_noProjectID(t *testing.T) {
 	source := fakeSource("", errors.New("no metadata server"), "")
 
-	e := traceOf(t, withOtelTracing(source))
+	e := traceOf(t, withTracing(source))
 
 	assert.Empty(t, e.Trace)
 	assert.Empty(t, e.SpanID)
 	assert.False(t, e.TraceSampled)
 }
 
-// The source of WithOtelTracing reads the metadata server at the host in
+// The source of WithTracing reads the metadata server at the host in
 // GCE_METADATA_HOST.
-func TestWithOtelTracing_metadataServer(t *testing.T) {
+func TestWithTracing_metadataServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/computeMetadata/v1/"+projectIDPath || r.Header.Get("Metadata-Flavor") != "Google" {
 			http.NotFound(w, r)
@@ -140,7 +140,7 @@ func TestWithOtelTracing_metadataServer(t *testing.T) {
 	host := strings.TrimPrefix(server.URL, "http://")
 	t.Setenv("GCE_METADATA_HOST", host)
 
-	e := traceOf(t, WithOtelTracing())
+	e := traceOf(t, WithTracing())
 
 	assert.Equal(t, "projects/from-server/traces/52fc1643a9381fc674742bb0067101e7", e.Trace)
 }

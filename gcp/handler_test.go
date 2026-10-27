@@ -1201,7 +1201,7 @@ func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 	}
 
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithReplaceAttr(redact), otel.WithOtelBaggage())
+	h := gcp.NewHandler(got, core.WithReplaceAttr(redact), otel.WithBaggage())
 
 	bag := otel.MustParse("email=jan@example.com")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)

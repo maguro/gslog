@@ -204,7 +204,7 @@ Output:
 
 ### stdout.NewHandler (withOpenTelemetryBaggage)
 
-With the otel.WithOtelBaggage() option, stdout.Handler adds the baggage.Baggage in the context as attributes.
+With the otel.WithBaggage() option, stdout.Handler adds the baggage.Baggage in the context as attributes.
 
 The handler adds the prefix "otel-baggage/" to each baggage key.  The prefix makes collisions with other log attributes less likely.  The handler writes the baggage attributes after the attributes of the record.
 
@@ -236,7 +236,7 @@ func newRecord(attrs ...slog.Attr) slog.Record {
 }
 
 func main() {
-	h := stdout.NewHandler(os.Stdout, otel.WithOtelBaggage())
+	h := stdout.NewHandler(os.Stdout, otel.WithBaggage())
 
 	ctx := context.Background()
 	ctx = baggage.ContextWithBaggage(ctx, otel.MustParse("a=one,b=two;p1;p2=val2"))
@@ -254,7 +254,7 @@ Output:
 
 ### stdout.NewHandler (withOpenTelemetryTrace)
 
-With the otel.WithOtelTracing() option, stdout.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the line.
+With the otel.WithTracing() option, stdout.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the line.
 
 ```go
 package main
@@ -284,7 +284,7 @@ func newRecord(attrs ...slog.Attr) slog.Record {
 }
 
 func main() {
-	h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(os.Stdout, otel.WithTracing("my-project"))
 
 	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
 	spanID, _ := trace.SpanIDFromHex("d3e9e8c51cb190df")
@@ -927,7 +927,7 @@ a=one, b=two, k8s-pod/app=hello-world, k8s-pod/environment=stg, k8s-pod/tier=bac
 
 ### gcp.NewHandler (withOpenTelemetryBaggage)
 
-With the otel.WithOtelBaggage() option, gcp.Handler adds the baggage.Baggage in the context as attributes.
+With the otel.WithBaggage() option, gcp.Handler adds the baggage.Baggage in the context as attributes.
 
 The handler adds the prefix "otel-baggage/" to each baggage key.  The prefix makes collisions with other log attributes less likely.  A baggage attribute has precedence over an attribute that already has the same key.
 
@@ -962,7 +962,7 @@ func PrintJsonPayload(e logging.Entry) {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithBaggage())
 	l := slog.New(h)
 
 	ctx := context.Background()
@@ -981,7 +981,7 @@ Output:
 
 ### gcp.NewHandler (withOpenTelemetryTrace)
 
-With the otel.WithOtelTracing() option, gcp.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the logging.Entry.
+With the otel.WithTracing() option, gcp.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the logging.Entry.
 
 ```go
 package main
@@ -1019,7 +1019,7 @@ func PrintTracing(e logging.Entry) {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithTracing("my-project"))
 	l := slog.New(h)
 
 	traceId, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
@@ -1399,7 +1399,7 @@ Package otel contains options that include OpenTelemetry baggage and tracing in 
 
 The options are in a separate package.  Because of this, a module that does not need OpenTelemetry tracing has fewer dependencies.
 
-### otel.WithOtelTracing (httpServer)
+### otel.WithTracing (httpServer)
 
 A program with no OpenTelemetry SDK can link its logs to the trace of each request.  The HTTP handler from withTraceContext puts the span context of the traceparent header in the context of the request.  The log call gives that context to the slog handler.
 
@@ -1444,7 +1444,7 @@ func withTraceContext(next http.Handler) http.Handler {
 func main() {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(&buf, otel.WithTracing("my-project"))
 	logger := slog.New(h)
 
 	app := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {

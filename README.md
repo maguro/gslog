@@ -56,7 +56,7 @@ The agent makes an INFO entry with `animal` in its `jsonPayload`.
 
 ### Link Logs to Traces
 
-Add `otel.WithOtelTracing` and log with a context that holds an OpenTelemetry
+Add `otel.WithTracing` and log with a context that holds an OpenTelemetry
 span:
 
 ```go
@@ -68,7 +68,7 @@ import (
 	"m4o.io/gslog/stdout"
 )
 
-h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
+h := stdout.NewHandler(os.Stdout, otel.WithTracing("my-project"))
 logger := slog.New(h)
 
 logger.InfoContext(ctx, "Order placed", "order_id", "A-1001")
@@ -93,7 +93,7 @@ import (
 	"m4o.io/gslog/stdout"
 )
 
-h := stdout.NewHandler(os.Stdout, detect.WithOtelTracing())
+h := stdout.NewHandler(os.Stdout, detect.WithTracing())
 ```
 
 The handler gets the span only from the context of the log call. Use a call
@@ -124,7 +124,7 @@ func withTraceContext(next http.Handler) http.Handler {
 }
 ```
 
-The [`otel.WithOtelTracing` (httpServer)](docs/examples.md#otelwithoteltracing-httpserver)
+The [`otel.WithTracing` (httpServer)](docs/examples.md#otelwithtracing-httpserver)
 example runs this wrapper.
 
 ### Which Handler
@@ -283,9 +283,9 @@ options from the `core` package:
 | `core.WithDefaultLogLeveler()`         |   `slog.Leveler`   | Specifies the default `slog.Leveler` for logging.                                                                                                                                                                                                                                                                              |
 | `core.WithSourceAdded()`               |                    | Causes the handler to compute the source code position of the log statement. The gcp handler sets the `SourceLocation` field of the `logging.Entry`. The stdout handler writes the `logging.googleapis.com/sourceLocation` field.                                                                                             |
 | `core.WithReplaceAttr(mapper)`         | `core.AttrMapper`  | Specifies an attribute mapper. The handler calls the mapper to rewrite each non-group attribute before the handler logs the attribute.                                                                                                                                                                                         |
-| `otel.WithOtelBaggage()`               |                    | Causes the handler to include [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/). The handler gets the `baggage.Baggage` from the context, if the context has one, and adds the baggage as attributes.                                                                                           |
-| `otel.WithOtelTracing(id)`             |      `string`      | Causes the handler to include [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/). The handler gets the tracing information from the `trace.SpanContext` in the context, if the context has one. `id` is the ID of the project that holds the traces.                                                                                                   |
-| `detect.WithOtelTracing()`             |                    | The same as `otel.WithOtelTracing(id)`, with the project ID from the metadata server and then from `GOOGLE_CLOUD_PROJECT`. If it finds no project ID, the handler includes no tracing. The `detect` package is `m4o.io/gslog/otel/detect`. |
+| `otel.WithBaggage()`                   |                    | Causes the handler to include [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/). The handler gets the `baggage.Baggage` from the context, if the context has one, and adds the baggage as attributes.                                                                                           |
+| `otel.WithTracing(id)`                 |      `string`      | Causes the handler to include [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/). The handler gets the tracing information from the `trace.SpanContext` in the context, if the context has one. `id` is the ID of the project that holds the traces.                                                                                                   |
+| `detect.WithTracing()`                 |                    | The same as `otel.WithTracing(id)`, with the project ID from the metadata server and then from `GOOGLE_CLOUD_PROJECT`. If it finds no project ID, the handler includes no tracing. The `detect` package is `m4o.io/gslog/otel/detect`. |
 | `k8s.WithPodinfoLabels(root)`          |      `string`      | Causes the handler to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The handler expects the labels file in the directory that root specifies. The file must be named "labels", as the Kubernetes Downward API for Pods specifies. |
 | `errorreporting.WithService(service, version)` | `string`, `string` | Causes the handler to include the fields that [Google Cloud Error Reporting](https://cloud.google.com/error-reporting/docs/formatting-error-messages) reads in each record at level Error or higher: the `@type` of a `ReportedErrorEvent`, the `serviceContext`, and a `stack_trace`. The stack trace is the stack of the log call. |
 

@@ -45,7 +45,7 @@ func (g *Got) Flush() error {
 	return nil
 }
 
-func TestWithOtelTracing(t *testing.T) {
+func TestWithTracing(t *testing.T) {
 	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
 	spanID, _ := trace.SpanIDFromHex("00f067aa0ba902b7")
 
@@ -60,7 +60,7 @@ func TestWithOtelTracing(t *testing.T) {
 	ctx = trace.ContextWithRemoteSpanContext(ctx, sCtx)
 
 	got := &Got{}
-	h := gcp.NewHandler(got, otel.WithOtelTracing("my-project"))
+	h := gcp.NewHandler(got, otel.WithTracing("my-project"))
 	l := slog.New(h)
 
 	l.Log(ctx, slog.LevelInfo, "how now brown cow")

@@ -65,7 +65,7 @@ func BenchmarkHandleGroups(b *testing.B) {
 }
 
 func BenchmarkHandleBaggage(b *testing.B) {
-	h := stdout.NewHandler(io.Discard, core.WithLogLeveler(slog.LevelInfo), otel.WithOtelBaggage())
+	h := stdout.NewHandler(io.Discard, core.WithLogLeveler(slog.LevelInfo), otel.WithBaggage())
 
 	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)

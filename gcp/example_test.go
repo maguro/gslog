@@ -179,14 +179,14 @@ func ExampleNewHandler_withK8sPodinfo() {
 	// Output: a=one, b=two, k8s-pod/app=hello-world, k8s-pod/environment=stg, k8s-pod/tier=backend, k8s-pod/track=stable
 }
 
-// With the otel.WithOtelBaggage() option, gcp.Handler adds the
+// With the otel.WithBaggage() option, gcp.Handler adds the
 // baggage.Baggage in the context as attributes.
 //
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  A baggage
 // attribute has precedence over an attribute that already has the same key.
 func ExampleNewHandler_withOpenTelemetryBaggage() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithOtelBaggage())
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), otel.WithBaggage())
 	l := slog.New(h)
 
 	ctx := context.Background()
@@ -216,11 +216,11 @@ func PrintTracing(e logging.Entry) {
 	fmt.Println(sb.String())
 }
 
-// With the otel.WithOtelTracing() option, gcp.Handler adds the
+// With the otel.WithTracing() option, gcp.Handler adds the
 // OpenTelemetry trace.SpanContext information in the context to the tracing
 // fields of the logging.Entry.
 func ExampleNewHandler_withOpenTelemetryTrace() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithOtelTracing("my-project"))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintTracing), otel.WithTracing("my-project"))
 	l := slog.New(h)
 
 	traceId, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")

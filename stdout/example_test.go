@@ -109,14 +109,14 @@ func ExampleNewHandler_withK8sPodinfo() {
 	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"a":"one","b":"two","k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
 }
 
-// With the otel.WithOtelBaggage() option, stdout.Handler adds the
+// With the otel.WithBaggage() option, stdout.Handler adds the
 // baggage.Baggage in the context as attributes.
 //
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  The
 // handler writes the baggage attributes after the attributes of the record.
 func ExampleNewHandler_withOpenTelemetryBaggage() {
-	h := stdout.NewHandler(os.Stdout, otel.WithOtelBaggage())
+	h := stdout.NewHandler(os.Stdout, otel.WithBaggage())
 
 	ctx := context.Background()
 	ctx = baggage.ContextWithBaggage(ctx, otel.MustParse("a=one,b=two;p1;p2=val2"))
@@ -126,11 +126,11 @@ func ExampleNewHandler_withOpenTelemetryBaggage() {
 	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","otel-baggage/a":"one","otel-baggage/b":{"value":"two","properties":{"p1":null,"p2":"val2"}}}
 }
 
-// With the otel.WithOtelTracing() option, stdout.Handler adds the
+// With the otel.WithTracing() option, stdout.Handler adds the
 // OpenTelemetry trace.SpanContext information in the context to the tracing
 // fields of the line.
 func ExampleNewHandler_withOpenTelemetryTrace() {
-	h := stdout.NewHandler(os.Stdout, otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(os.Stdout, otel.WithTracing("my-project"))
 
 	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
 	spanID, _ := trace.SpanIDFromHex("d3e9e8c51cb190df")

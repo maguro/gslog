@@ -58,7 +58,7 @@ func decodeLine(t *testing.T, buf *bytes.Buffer) map[string]any {
 func TestHandler_agentFields(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithSourceAdded(), otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(&buf, core.WithSourceAdded(), otel.WithTracing("my-project"))
 
 	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{0x52, 0xfc, 0x16, 0x43, 0xa9, 0x38, 0x1f, 0xc6, 0x74, 0x74, 0x2b, 0xb0, 0x06, 0x71, 0x01, 0xe7},
@@ -294,7 +294,7 @@ func TestHandler_baggageInGroup(t *testing.T) {
 	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	slog.New(stdout.NewHandler(&buf, otel.WithOtelBaggage())).
+	slog.New(stdout.NewHandler(&buf, otel.WithBaggage())).
 		WithGroup("req").With("id", "abc").
 		InfoContext(ctx, "hello", "n", 1)
 
@@ -316,7 +316,7 @@ func TestHandler_baggagePropertyKeysAreUnique(t *testing.T) {
 	bag := otel.MustParse("b=two;p2=v2;p1;p2=dup")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	slog.New(stdout.NewHandler(&buf, otel.WithOtelBaggage())).InfoContext(ctx, "hello")
+	slog.New(stdout.NewHandler(&buf, otel.WithBaggage())).InfoContext(ctx, "hello")
 
 	assert.Equal(t, 1, strings.Count(buf.String(), `"p2":`))
 	assert.Contains(t, buf.String(), `"properties":{"p1":null,"p2":"dup"}`)
@@ -338,7 +338,7 @@ func TestHandler_baggageGoesThroughReplaceAttr(t *testing.T) {
 	bag := otel.MustParse("email=jan@example.com")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(redact), otel.WithOtelBaggage())).InfoContext(ctx, "hello")
+	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(redact), otel.WithBaggage())).InfoContext(ctx, "hello")
 
 	got := decodeLine(t, &buf)
 
@@ -355,7 +355,7 @@ func TestHandler_baggageOrderIsStable(t *testing.T) {
 	bag := otel.MustParse("e=5,a=1,d=4,b=2,c=3")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	h := stdout.NewHandler(&buf, otel.WithOtelBaggage())
+	h := stdout.NewHandler(&buf, otel.WithBaggage())
 	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
 	for range lines {

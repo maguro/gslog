@@ -49,10 +49,10 @@ func withTraceContext(next http.Handler) http.Handler {
 // request.  The HTTP handler from withTraceContext puts the span context of
 // the traceparent header in the context of the request.  The log call gives
 // that context to the slog handler.
-func ExampleWithOtelTracing_httpServer() {
+func ExampleWithTracing_httpServer() {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, otel.WithOtelTracing("my-project"))
+	h := stdout.NewHandler(&buf, otel.WithTracing("my-project"))
 	logger := slog.New(h)
 
 	app := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {

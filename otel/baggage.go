@@ -27,15 +27,14 @@ import (
 	"m4o.io/gslog/internal/options"
 )
 
-// noinspection GoNameStartsWithPackageName.
 const (
-	// OtelBaggageKey is the prefix for keys that come from the OpenTelemetry
+	// BaggagePrefix is the prefix for keys that come from the OpenTelemetry
 	// Baggage.  The prefix makes collisions with other log attributes less
 	// likely.
-	OtelBaggageKey = "otel-baggage/"
+	BaggagePrefix = "otel-baggage/"
 )
 
-// WithOtelBaggage returns a gslog option that causes the handler to include
+// WithBaggage returns a gslog option that causes the handler to include
 // OpenTelemetry baggage.  The handler gets the baggage.Baggage from the
 // context, if the context has one, and adds the baggage as attributes.
 //
@@ -65,7 +64,7 @@ const (
 //			slog.String("p2", "val2"),
 //		),
 //	)
-func WithOtelBaggage() core.Option {
+func WithBaggage() core.Option {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, addBaggage)
 	}
@@ -110,7 +109,7 @@ func compareKeys[T keyed](a, b T) int {
 // baggageAttr maps a baggage member to a slog.Attr.  The properties are in
 // key order.  A property replaces an earlier property with the same key.
 func baggageAttr(member baggage.Member) slog.Attr {
-	key := OtelBaggageKey + member.Key()
+	key := BaggagePrefix + member.Key()
 
 	props := member.Properties()
 	if len(props) == 0 {

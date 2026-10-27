@@ -39,28 +39,28 @@ const (
 	detectTimeout = 2 * time.Second
 )
 
-// WithOtelTracing returns the option of otel.WithOtelTracing with the project
-// ID of the environment.  WithOtelTracing gets the project ID from the
-// metadata server, as the client of cloud.google.com/go/logging does.  If the
-// metadata server gives no project ID, WithOtelTracing uses the environment
-// variable GOOGLE_CLOUD_PROJECT.  The detection can take two seconds when
-// there is no metadata server.  If WithOtelTracing finds no project ID, the
-// handler includes no tracing.
-func WithOtelTracing() core.Option {
+// WithTracing returns the option of otel.WithTracing with the project ID of
+// the environment.  WithTracing gets the project ID from the metadata server,
+// as the client of cloud.google.com/go/logging does.  If the metadata server
+// gives no project ID, WithTracing uses the environment variable
+// GOOGLE_CLOUD_PROJECT.  The detection can take two seconds when there is no
+// metadata server.  If WithTracing finds no project ID, the handler includes
+// no tracing.
+func WithTracing() core.Option {
 	source := newProjectSource()
 
-	return withOtelTracing(source)
+	return withTracing(source)
 }
 
-// withOtelTracing is WithOtelTracing with the source for the detection of
-// the project ID.
-func withOtelTracing(source projectSource) core.Option {
+// withTracing is WithTracing with the source for the detection of the
+// project ID.
+func withTracing(source projectSource) core.Option {
 	projectID := detectProjectID(source)
 	if projectID == "" {
 		return func(*options.Options) {}
 	}
 
-	return otel.WithOtelTracing(projectID)
+	return otel.WithTracing(projectID)
 }
 
 // projectSource holds the functions that detectProjectID calls.  metadata

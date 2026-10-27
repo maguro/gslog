@@ -29,7 +29,7 @@ import (
 	"m4o.io/gslog/otel"
 )
 
-func TestWithOtelBaggage(t *testing.T) {
+func TestWithBaggage(t *testing.T) {
 	b := otel.MustParse("a=one,b=two;prop1;prop2=1")
 	for _, test := range []struct {
 		name    string
@@ -111,7 +111,7 @@ func TestWithOtelBaggage(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := &Got{}
-			var h slog.Handler = gcp.NewHandler(got, otel.WithOtelBaggage())
+			var h slog.Handler = gcp.NewHandler(got, otel.WithBaggage())
 
 			for _, group := range test.groups {
 				h = h.WithGroup(group)
