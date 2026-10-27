@@ -136,6 +136,10 @@ alike.
   (`Expect(...)`, `require.NoError(...)`); or the inner call is a trivial
   accessor whose own name already says what it returns. Both stay as they are.
 
+## Commits
+
+- Write commit messages as `.claude/skills/git-commit-message/SKILL.md` describes.
+
 ## The public API is a contract
 
 This module is a published library. Every exported symbol outside `internal/`
