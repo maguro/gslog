@@ -61,7 +61,7 @@ func TestWithSourceAdded(t *testing.T) {
 
 func TestWithReplaceAttr(t *testing.T) {
 	replaced := slog.String("foo", "bar")
-	var mapper gslog.AttrMapper = func(_ []string, _ slog.Attr) slog.Attr {
+	mapper := func(_ []string, _ slog.Attr) slog.Attr {
 		return replaced
 	}
 	option := gslog.WithReplaceAttr(mapper)

@@ -21,9 +21,3 @@ import "m4o.io/gslog/core"
 //
 // Deprecated: Use core.MessageKey.
 const MessageKey = core.MessageKey
-
-// AttrMapper rewrites each non-group attribute before the handler logs the
-// attribute.
-//
-// Deprecated: Use core.AttrMapper.
-type AttrMapper = core.AttrMapper

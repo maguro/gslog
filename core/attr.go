@@ -14,7 +14,7 @@
 
 package core
 
-import "m4o.io/gslog/internal/mapper"
+import "log/slog"
 
 // MessageKey is the key that Google Cloud Logging specifies for the message
 // of the log call.  The value is a string.
@@ -45,4 +45,4 @@ const MessageKey = "message"
 // convert types (for example, replace a `time.Time` with the integer seconds
 // since the Unix epoch), sanitize personal information, or remove attributes
 // from the output.
-type AttrMapper mapper.Mapper
+type AttrMapper func(groups []string, a slog.Attr) slog.Attr

@@ -70,6 +70,6 @@ func WithSourceAdded() Option {
 // WithReplaceAttr returns an option that specifies an attribute mapper.
 //
 // Deprecated: Use core.WithReplaceAttr.
-func WithReplaceAttr(replaceAttr AttrMapper) Option {
+func WithReplaceAttr(replaceAttr core.AttrMapper) Option {
 	return core.WithReplaceAttr(replaceAttr)
 }
