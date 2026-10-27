@@ -17,8 +17,8 @@ package core
 import (
 	"log/slog"
 	"os"
-	"strconv"
 
+	"m4o.io/gslog/internal/level"
 	"m4o.io/gslog/internal/options"
 )
 
@@ -34,16 +34,19 @@ func WithLeveler(leveler slog.Leveler) Option {
 }
 
 // WithLogLevelFromEnvVar returns an option that reads the log level from the
-// environment variable that key names.
+// environment variable that key names.  The option reads the variable when
+// WithLogLevelFromEnvVar is called.  The value is an integer slog.Level, such
+// as -4 for Debug, or the name of a level with an optional offset, such as
+// "DEBUG", "warn", or "INFO+2".  The names are the slog names and "WARNING",
+// "NOTICE", "CRITICAL", "ALERT", and "EMERGENCY".  The case of a name is not
+// important.  The option ignores space at the start and end of the value.
+//
+// If the variable is not set, the option has no effect.  If the value does
+// not name a level, WithLogLevelFromEnvVar logs a warning with the default
+// slog.Logger, and the option has no effect.
 func WithLogLevelFromEnvVar(key string) Option {
 	if key == "" {
 		panic("Env var key is empty")
-	}
-
-	var envVarLogLevel slog.Level
-
-	setLogLevel := func(o *options.Options) {
-		o.EnvVarLogLevel = envVarLogLevel
 	}
 
 	str, ok := os.LookupEnv(key)
@@ -51,27 +54,16 @@ func WithLogLevelFromEnvVar(key string) Option {
 		return func(_ *options.Options) {}
 	}
 
-	lvl, err := strconv.Atoi(str)
-	if err == nil {
-		envVarLogLevel = slog.Level(lvl)
+	envVarLogLevel, ok := level.Parse(str)
+	if !ok {
+		slog.Warn("Invalid log level", "key", key, "value", str)
 
-		return setLogLevel
+		return func(_ *options.Options) {}
 	}
 
-	switch str {
-	case "DEBUG":
-		envVarLogLevel = slog.LevelDebug
-	case "INFO":
-		envVarLogLevel = slog.LevelInfo
-	case "WARN":
-		envVarLogLevel = slog.LevelWarn
-	case "ERROR":
-		envVarLogLevel = slog.LevelError
-	default:
-		envVarLogLevel = slog.LevelInfo
+	return func(o *options.Options) {
+		o.EnvVarLogLevel = envVarLogLevel
 	}
-
-	return setLogLevel
 }
 
 // WithDefaultLeveler returns an option that specifies the default

@@ -88,3 +88,44 @@ func TestSeverities(t *testing.T) {
 func TestSeverity_String_unknown(t *testing.T) {
 	assert.Equal(t, "250", level.Severity(250).String())
 }
+
+// TestParse verifies the values that Parse accepts and rejects.
+func TestParse(t *testing.T) {
+	tests := map[string]struct {
+		s      string
+		want   slog.Level
+		wantOK bool
+	}{
+		"integer":            {"8", slog.Level(8), true},
+		"negative integer":   {"-4", slog.LevelDebug, true},
+		"slog name":          {"WARN", slog.LevelWarn, true},
+		"lower case":         {"debug", slog.LevelDebug, true},
+		"slog offset":        {"INFO+2", slog.Level(2), true},
+		"lower case offset":  {"error-1", slog.Level(7), true},
+		"warning":            {"WARNING", slog.LevelWarn, true},
+		"notice":             {"notice", level.LevelNotice, true},
+		"critical":           {"CRITICAL", level.LevelCritical, true},
+		"alert":              {"Alert", level.LevelAlert, true},
+		"emergency":          {"EMERGENCY", level.LevelEmergency, true},
+		"cloud name offset":  {"NOTICE+1", slog.Level(3), true},
+		"cloud name minus":   {"ALERT-2", slog.Level(14), true},
+		"empty":              {"", 0, false},
+		"unknown name":       {"DEUBG", 0, false},
+		"bad slog offset":    {"INFO+x", 0, false},
+		"bad cloud offset":   {"NOTICE+x", 0, false},
+		"empty cloud offset": {"NOTICE+", 0, false},
+		"surrounding space":  {" debug\n", slog.LevelDebug, true},
+		"space with offset":  {"\tNOTICE+1 ", slog.Level(3), true},
+		"sign before name":   {"+DEBUG", 0, false},
+		"double sign":        {"INFO++1", 0, false},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, ok := level.Parse(tc.s)
+
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

@@ -19,6 +19,7 @@ package level
 import (
 	"log/slog"
 	"strconv"
+	"strings"
 )
 
 // Severity is a Cloud Logging severity.  The values are the values of the
@@ -64,6 +65,11 @@ const (
 	highestLevel = LevelEmergency
 )
 
+// cloudLevels maps the Cloud Logging names that slog does not have to their
+// levels.
+var cloudLevels = newCloudLevels(
+	slog.LevelWarn, LevelNotice, LevelCritical, LevelAlert, LevelEmergency)
+
 // ToSeverity converts a slog.Level to a Severity.  The result is in the
 // range Default to Emergency.
 func ToSeverity(level slog.Level) Severity {
@@ -102,4 +108,66 @@ func (s Severity) String() string {
 	default:
 		return strconv.Itoa(int(s))
 	}
+}
+
+// Parse returns the level that s names.  The value s is an integer
+// slog.Level, such as -4 for Debug, or a name with an optional offset, such
+// as "INFO+2".  The names are the slog names and the Cloud Logging names
+// "WARNING", "NOTICE", "CRITICAL", "ALERT", and "EMERGENCY".  Parse ignores
+// the case of a name, and space at the start and end of s.  Parse returns
+// false if s does not name a level.
+func Parse(s string) (slog.Level, bool) {
+	s = strings.TrimSpace(s)
+
+	n, err := strconv.Atoi(s)
+	if err == nil {
+		return slog.Level(n), true
+	}
+
+	name, offset := s, 0
+	if i := strings.IndexAny(s, "+-"); i > 0 {
+		name = s[:i]
+
+		offset, err = strconv.Atoi(s[i:])
+		if err != nil {
+			return 0, false
+		}
+	}
+
+	base, ok := baseLevel(name)
+	if !ok {
+		return 0, false
+	}
+
+	return base + slog.Level(offset), true
+}
+
+// baseLevel returns the level that name names, with no offset.
+func baseLevel(name string) (slog.Level, bool) {
+	upper := strings.ToUpper(name)
+
+	lvl, ok := cloudLevels[upper]
+	if ok {
+		return lvl, true
+	}
+
+	err := lvl.UnmarshalText([]byte(upper))
+	if err != nil {
+		return 0, false
+	}
+
+	return lvl, true
+}
+
+// newCloudLevels returns a map from the severity name of each level to the
+// level.
+func newCloudLevels(levels ...slog.Level) map[string]slog.Level {
+	names := make(map[string]slog.Level, len(levels))
+
+	for _, lvl := range levels {
+		severity := ToSeverity(lvl)
+		names[severity.String()] = lvl
+	}
+
+	return names
 }

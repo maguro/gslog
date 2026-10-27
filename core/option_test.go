@@ -15,6 +15,7 @@
 package core_test
 
 import (
+	"bytes"
 	"log/slog"
 	"math"
 	"os"
@@ -49,6 +50,10 @@ func TestLogLevel(t *testing.T) {
 		"explicit overrides default": {slog.LevelInfo, slog.LevelDebug, false, naString, naString, slog.LevelInfo},
 		"explicit overrides all":     {slog.LevelInfo, slog.LevelDebug, true, envVarLogLevelKey, "ERROR", slog.LevelInfo},
 		"env var garbage":            {levelUnknown, levelUnknown, true, envVarLogLevelKey, "OUCH", slog.LevelInfo},
+		"garbage keeps default":      {levelUnknown, slog.LevelDebug, true, envVarLogLevelKey, "OUCH", slog.LevelDebug},
+		"env var lower case":         {levelUnknown, levelUnknown, true, envVarLogLevelKey, "debug", slog.LevelDebug},
+		"env var offset":             {levelUnknown, levelUnknown, true, envVarLogLevelKey, "WARN+2", slog.Level(6)},
+		"env var NOTICE":             {levelUnknown, levelUnknown, true, envVarLogLevelKey, "NOTICE", core.LevelNotice},
 		"env var DEBUG":              {levelUnknown, levelUnknown, true, envVarLogLevelKey, "DEBUG", slog.LevelDebug},
 		"env var INFO":               {levelUnknown, levelUnknown, true, envVarLogLevelKey, "INFO", slog.LevelInfo},
 		"env var WARN":               {levelUnknown, levelUnknown, true, envVarLogLevelKey, "WARN", slog.LevelWarn},
@@ -91,6 +96,23 @@ func TestWithLogLevelFromEnvVar(t *testing.T) {
 		}
 	}()
 	core.WithLogLevelFromEnvVar("")
+}
+
+func TestWithLogLevelFromEnvVar_invalidValueWarns(t *testing.T) {
+	var buf bytes.Buffer
+
+	previous := slog.Default()
+	defer slog.SetDefault(previous)
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Setenv(envVarLogLevelKey, "DEUBG")
+
+	o := options.ApplyOptions(
+		core.WithDefaultLeveler(slog.LevelWarn),
+		core.WithLogLevelFromEnvVar(envVarLogLevelKey))
+
+	assert.Equal(t, slog.LevelWarn, o.Level)
+	assert.Contains(t, buf.String(), `level=WARN msg="Invalid log level" key=TEST_ENV_VAR value=DEUBG`)
 }
 
 func TestWithSourceAdded(t *testing.T) {
