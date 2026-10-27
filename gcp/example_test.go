@@ -286,10 +286,10 @@ func ExampleNewHandler_withReplaceAttr() {
 	// Output: {"message":"How now brown cow?","pub":{"username":"user-12234"}}
 }
 
-// With the core.WithLogLeveler() option, gcp.Handler uses the
+// With the core.WithLeveler() option, gcp.Handler uses the
 // slog.Leveler to decide whether a log level is enabled.
-func ExampleNewHandler_withLogLeveler() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLeveler(slog.LevelError))
+func ExampleNewHandler_withLeveler() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLeveler(slog.LevelError))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -316,14 +316,14 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// The core.WithDefaultLogLeveler() option sets a default log level.
-func ExampleNewHandler_withDefaultLogLeveler() {
+// The core.WithDefaultLeveler() option sets a default log level.
+func ExampleNewHandler_withDefaultLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 
 	h := gcp.NewHandler(
 		gcp.LoggerFunc(PrintJsonPayload),
 		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLogLeveler(slog.LevelError),
+		core.WithDefaultLeveler(slog.LevelError),
 	)
 	l := slog.New(h)
 

@@ -38,9 +38,9 @@ type Option = core.Option
 // WithLogLeveler returns an option that specifies the slog.Leveler for
 // logging.
 //
-// Deprecated: Use core.WithLogLeveler.
+// Deprecated: Use core.WithLeveler.
 func WithLogLeveler(logLevel slog.Leveler) Option {
-	return core.WithLogLeveler(logLevel)
+	return core.WithLeveler(logLevel)
 }
 
 // WithLogLevelFromEnvVar returns an option that reads the log level from the
@@ -54,9 +54,9 @@ func WithLogLevelFromEnvVar(key string) Option {
 // WithDefaultLogLeveler returns an option that specifies the default
 // slog.Leveler for logging.
 //
-// Deprecated: Use core.WithDefaultLogLeveler.
+// Deprecated: Use core.WithDefaultLeveler.
 func WithDefaultLogLeveler(defaultLogLevel slog.Leveler) Option {
-	return core.WithDefaultLogLeveler(defaultLogLevel)
+	return core.WithDefaultLeveler(defaultLogLevel)
 }
 
 // WithSourceAdded returns an option that causes the handler to compute the

@@ -29,7 +29,7 @@ import (
 )
 
 func BenchmarkHandleThreeAttrs(b *testing.B) {
-	h := stdout.NewHandler(io.Discard, core.WithLogLeveler(slog.LevelInfo))
+	h := stdout.NewHandler(io.Discard, core.WithLeveler(slog.LevelInfo))
 	ctx := context.Background()
 
 	b.ReportAllocs()
@@ -45,7 +45,7 @@ func BenchmarkHandleThreeAttrs(b *testing.B) {
 }
 
 func BenchmarkHandleGroups(b *testing.B) {
-	var h slog.Handler = stdout.NewHandler(io.Discard, core.WithLogLeveler(slog.LevelInfo))
+	var h slog.Handler = stdout.NewHandler(io.Discard, core.WithLeveler(slog.LevelInfo))
 	h = h.WithGroup("req")
 	h = h.WithAttrs([]slog.Attr{slog.String("id", "abc")})
 	h = h.WithGroup("user")
@@ -65,7 +65,7 @@ func BenchmarkHandleGroups(b *testing.B) {
 }
 
 func BenchmarkHandleBaggage(b *testing.B) {
-	h := stdout.NewHandler(io.Discard, core.WithLogLeveler(slog.LevelInfo), otel.WithBaggage())
+	h := stdout.NewHandler(io.Discard, core.WithLeveler(slog.LevelInfo), otel.WithBaggage())
 
 	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)

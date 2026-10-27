@@ -63,10 +63,10 @@ func TestLogLevel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var opts []options.OptionProcessor
 			if tc.explicitLogLevel != levelUnknown {
-				opts = append(opts, core.WithLogLeveler(tc.explicitLogLevel))
+				opts = append(opts, core.WithLeveler(tc.explicitLogLevel))
 			}
 			if tc.defaultLogLevel != levelUnknown {
-				opts = append(opts, core.WithDefaultLogLeveler(tc.defaultLogLevel))
+				opts = append(opts, core.WithDefaultLeveler(tc.defaultLogLevel))
 			}
 			if tc.envVar {
 				if tc.envVarKey != "" {
@@ -94,7 +94,7 @@ func TestWithLogLevelFromEnvVar(t *testing.T) {
 }
 
 func TestWithSourceAdded(t *testing.T) {
-	o := options.ApplyOptions(core.WithSourceAdded(), core.WithDefaultLogLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(core.WithSourceAdded(), core.WithDefaultLeveler(slog.LevelInfo))
 	assert.True(t, o.AddSource)
 }
 
@@ -104,6 +104,6 @@ func TestWithReplaceAttr(t *testing.T) {
 		return s
 	}
 
-	o := options.ApplyOptions(core.WithReplaceAttr(ra), core.WithDefaultLogLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(core.WithReplaceAttr(ra), core.WithDefaultLeveler(slog.LevelInfo))
 	assert.Equal(t, s, o.ReplaceAttr(nil, slog.String("unused", "string")))
 }

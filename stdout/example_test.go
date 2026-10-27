@@ -201,10 +201,10 @@ func ExampleNewHandler_withReplaceAttr() {
 	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"username":"user-12234"}}
 }
 
-// With the core.WithLogLeveler() option, stdout.Handler uses the
+// With the core.WithLeveler() option, stdout.Handler uses the
 // slog.Leveler to decide whether a log level is enabled.
-func ExampleNewHandler_withLogLeveler() {
-	h := stdout.NewHandler(os.Stdout, core.WithLogLeveler(slog.LevelError))
+func ExampleNewHandler_withLeveler() {
+	h := stdout.NewHandler(os.Stdout, core.WithLeveler(slog.LevelError))
 
 	ctx := context.Background()
 
@@ -231,14 +231,14 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 	// Output: false true
 }
 
-// The core.WithDefaultLogLeveler() option sets a default log level.  The
+// The core.WithDefaultLeveler() option sets a default log level.  The
 // environment variable is not set, so the default applies.
-func ExampleNewHandler_withDefaultLogLeveler() {
+func ExampleNewHandler_withDefaultLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 
 	h := stdout.NewHandler(os.Stdout,
 		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLogLeveler(slog.LevelError),
+		core.WithDefaultLeveler(slog.LevelError),
 	)
 
 	ctx := context.Background()

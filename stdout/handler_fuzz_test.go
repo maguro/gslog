@@ -41,7 +41,7 @@ func FuzzHandle(f *testing.F) {
 	f.Fuzz(func(t *testing.T, msg, group, key, value string) {
 		var buf bytes.Buffer
 
-		var h slog.Handler = stdout.NewHandler(&buf, core.WithDefaultLogLeveler(slog.LevelInfo))
+		var h slog.Handler = stdout.NewHandler(&buf, core.WithDefaultLeveler(slog.LevelInfo))
 		h = h.WithGroup(group)
 
 		attrs := []slog.Attr{slog.String(key, value), slog.Group(group, slog.String(key, value))}

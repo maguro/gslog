@@ -416,9 +416,9 @@ Output:
 {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"username":"user-12234"}}
 ```
 
-### stdout.NewHandler (withLogLeveler)
+### stdout.NewHandler (withLeveler)
 
-With the core.WithLogLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
+With the core.WithLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
 
 ```go
 package main
@@ -434,7 +434,7 @@ import (
 )
 
 func main() {
-	h := stdout.NewHandler(os.Stdout, core.WithLogLeveler(slog.LevelError))
+	h := stdout.NewHandler(os.Stdout, core.WithLeveler(slog.LevelError))
 
 	ctx := context.Background()
 
@@ -488,9 +488,9 @@ Output:
 false true
 ```
 
-### stdout.NewHandler (withDefaultLogLeveler)
+### stdout.NewHandler (withDefaultLeveler)
 
-The core.WithDefaultLogLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
+The core.WithDefaultLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
 
 ```go
 package main
@@ -510,7 +510,7 @@ func main() {
 
 	h := stdout.NewHandler(os.Stdout,
 		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLogLeveler(slog.LevelError),
+		core.WithDefaultLeveler(slog.LevelError),
 	)
 
 	ctx := context.Background()
@@ -1185,9 +1185,9 @@ Output:
 {"message":"How now brown cow?","pub":{"username":"user-12234"}}
 ```
 
-### gcp.NewHandler (withLogLeveler)
+### gcp.NewHandler (withLeveler)
 
-With the core.WithLogLeveler() option, gcp.Handler uses the slog.Leveler to decide whether a log level is enabled.
+With the core.WithLeveler() option, gcp.Handler uses the slog.Leveler to decide whether a log level is enabled.
 
 ```go
 package main
@@ -1218,7 +1218,7 @@ func PrintJsonPayload(e logging.Entry) {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLeveler(slog.LevelError))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLeveler(slog.LevelError))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -1288,9 +1288,9 @@ Output:
 {"message":"The rain in Spain lies mainly on the plane."}
 ```
 
-### gcp.NewHandler (withDefaultLogLeveler)
+### gcp.NewHandler (withDefaultLeveler)
 
-The core.WithDefaultLogLeveler() option sets a default log level.
+The core.WithDefaultLeveler() option sets a default log level.
 
 ```go
 package main
@@ -1326,7 +1326,7 @@ func main() {
 	h := gcp.NewHandler(
 		gcp.LoggerFunc(PrintJsonPayload),
 		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLogLeveler(slog.LevelError),
+		core.WithDefaultLeveler(slog.LevelError),
 	)
 	l := slog.New(h)
 

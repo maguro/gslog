@@ -25,11 +25,11 @@ import (
 // Option configures a handler.
 type Option = options.OptionProcessor
 
-// WithLogLeveler returns an option that specifies the slog.Leveler for logging.
+// WithLeveler returns an option that specifies the slog.Leveler for logging.
 // This option has precedence over the other log level options.
-func WithLogLeveler(logLevel slog.Leveler) Option {
+func WithLeveler(leveler slog.Leveler) Option {
 	return func(o *options.Options) {
-		o.ExplicitLogLevel = logLevel
+		o.ExplicitLogLevel = leveler
 	}
 }
 
@@ -74,11 +74,11 @@ func WithLogLevelFromEnvVar(key string) Option {
 	return setLogLevel
 }
 
-// WithDefaultLogLeveler returns an option that specifies the default
+// WithDefaultLeveler returns an option that specifies the default
 // slog.Leveler for logging.
-func WithDefaultLogLeveler(defaultLogLevel slog.Leveler) Option {
+func WithDefaultLeveler(defaultLeveler slog.Leveler) Option {
 	return func(o *options.Options) {
-		o.DefaultLogLevel = defaultLogLevel
+		o.DefaultLogLevel = defaultLeveler
 	}
 }
 

@@ -227,7 +227,7 @@ func TestDefaultHandle(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := &Got{}
-			var h slog.Handler = gcp.NewHandler(got, core.WithDefaultLogLeveler(slog.LevelInfo))
+			var h slog.Handler = gcp.NewHandler(got, core.WithDefaultLeveler(slog.LevelInfo))
 			if test.with != nil {
 				h = test.with(h)
 			}
@@ -264,7 +264,7 @@ func TestConcurrentWrites(t *testing.T) {
 				s2Count++
 			}
 		}),
-		core.WithDefaultLogLeveler(slog.LevelInfo))
+		core.WithDefaultLeveler(slog.LevelInfo))
 
 	sub1 := h.WithAttrs([]slog.Attr{slog.Bool("sub1", true)})
 	sub2 := h.WithAttrs([]slog.Attr{slog.Bool("sub2", true)})
@@ -1099,7 +1099,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 
 			opts := []options.OptionProcessor{
 				core.WithReplaceAttr(test.replace),
-				core.WithDefaultLogLeveler(slog.LevelInfo),
+				core.WithDefaultLeveler(slog.LevelInfo),
 			}
 
 			if test.addSource != nil {
@@ -1228,7 +1228,7 @@ func TestWithSourceAdded_noPC(t *testing.T) {
 
 func TestWithLeveler(t *testing.T) {
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, core.WithLeveler(slog.LevelInfo))
 
 	l := slog.New(h.WithLeveler(slog.LevelError))
 
@@ -1270,7 +1270,7 @@ func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
 
 func TestLevelCritical(t *testing.T) {
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, core.WithLeveler(slog.LevelInfo))
 	l := slog.New(h)
 
 	l.Info("How now brown cow")

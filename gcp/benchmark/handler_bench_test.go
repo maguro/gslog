@@ -39,7 +39,7 @@ func (noopLogger) Flush() error {
 }
 
 func BenchmarkHandleThreeAttrs(b *testing.B) {
-	h := gcp.NewHandler(noopLogger{}, core.WithLogLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(noopLogger{}, core.WithLeveler(slog.LevelInfo))
 	ctx := context.Background()
 
 	b.ReportAllocs()
