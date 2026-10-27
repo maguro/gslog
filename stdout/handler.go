@@ -97,6 +97,18 @@ func NewHandler(w io.Writer, opts ...core.Option) *Handler {
 	}
 }
 
+// WithLeveler returns a copy of the handler that uses the supplied leveler.
+func (h *Handler) WithLeveler(leveler slog.Leveler) *Handler {
+	if leveler == nil {
+		panic("Leveler is nil")
+	}
+
+	h2 := h.clone()
+	h2.level = leveler
+
+	return h2
+}
+
 // Enabled reports whether the handler handles records at the given level.
 // The handler ignores a record that has a lower level.
 func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {

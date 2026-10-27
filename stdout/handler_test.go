@@ -206,6 +206,27 @@ func TestHandler_writeError(t *testing.T) {
 	assert.Error(t, h.Handle(context.Background(), record))
 }
 
+func TestHandler_WithLeveler(t *testing.T) {
+	var buf bytes.Buffer
+
+	h := stdout.NewHandler(&buf, core.WithLeveler(slog.LevelInfo))
+	l := slog.New(h.WithLeveler(slog.LevelError))
+
+	l.Warn("How now brown cow")
+
+	assert.Empty(t, buf.String())
+
+	l.Error("Ouch!")
+
+	assert.Contains(t, buf.String(), `"message":"Ouch!"`)
+}
+
+func TestHandler_WithLeveler_nil(t *testing.T) {
+	h := stdout.NewHandler(nil)
+
+	assert.Panics(t, func() { h.WithLeveler(nil) })
+}
+
 func TestHandler_siblingsDoNotShareAttrs(t *testing.T) {
 	var buf bytes.Buffer
 
