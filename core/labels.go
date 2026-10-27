@@ -28,21 +28,14 @@ const (
 
 // LabelPair represents a key-value string pair.
 type LabelPair struct {
-	valid  bool
-	ignore bool
-	key    string
-	val    string
+	valid bool
+	key   string
+	val   string
 }
 
 // Label returns a new LabelPair from a key and a value.
 func Label(key, value string) LabelPair {
-	return LabelPair{valid: true, ignore: false, key: key, val: value}
-}
-
-// IsIgnored reports whether there is a problem with the label pair.  The
-// handler does not add an ignored label pair to the logging record.
-func (lp LabelPair) IsIgnored() bool {
-	return lp.ignore
+	return LabelPair{valid: true, key: key, val: value}
 }
 
 // LogValue returns the slog.Value of the label pair.
@@ -64,10 +57,6 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	maps.Copy(labels, parent)
 
 	for _, labelPair := range labelPairs {
-		if labelPair.ignore {
-			continue
-		}
-
 		if !labelPair.valid {
 			panic("invalid label passed to WithLabels()")
 		}
