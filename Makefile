@@ -1,4 +1,4 @@
-GOLANGCI_LINT_VERSION := v2.13.2
+GOLANGCI_LINT_VERSION := v2.15.0
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
 EXAMPLES_DOC := docs/examples.md
