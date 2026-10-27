@@ -1,0 +1,42 @@
+name: Workflow for Context7
+# This workflow tells Context7 to index the documentation again. It runs on
+# pushes to the default branch. The CONTEXT7_API_KEY secret gives the workflow
+# access to the Context7 account. A 429 response gives a warning. Other error
+# responses make the job fail.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh the Context7 documentation
+        env:
+          CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+          LIBRARY_NAME: /${{ github.repository }}
+        run: |
+          response="${RUNNER_TEMP}/context7-response.json"
+          status=$(curl -sS -o "${response}" -w '%{http_code}' \
+            -X POST https://context7.com/api/v1/refresh \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CONTEXT7_API_KEY}" \
+            -d "{\"libraryName\": \"${LIBRARY_NAME}\"}")
+          body=$(cat "${response}")
+
+          case "${status}" in
+            2??)
+              echo "${body}"
+              ;;
+            429)
+              echo "::warning title=Context7 refresh too early::${body}"
+              ;;
+            *)
+              echo "::error title=Context7 refresh failed::HTTP ${status}: ${body}"
+              exit 1
+              ;;
+          esac
+        shell: bash
