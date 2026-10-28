@@ -89,6 +89,37 @@ func TestLogLevel(t *testing.T) {
 	}
 }
 
+func TestLogLevel_nilLeveler(t *testing.T) {
+	tests := map[string]struct {
+		opts     []gslog.Option
+		expected slog.Level
+	}{
+		"nil leveler": {
+			opts:     []gslog.Option{gslog.WithLeveler(nil)},
+			expected: slog.LevelInfo,
+		},
+		"nil default leveler": {
+			opts:     []gslog.Option{gslog.WithDefaultLeveler(nil)},
+			expected: slog.LevelInfo,
+		},
+		"nil leveler keeps default": {
+			opts:     []gslog.Option{gslog.WithLeveler(nil), gslog.WithDefaultLeveler(slog.LevelDebug)},
+			expected: slog.LevelDebug,
+		},
+		"nil leveler keeps earlier leveler": {
+			opts:     []gslog.Option{gslog.WithLeveler(slog.LevelDebug), gslog.WithLeveler(nil)},
+			expected: slog.LevelDebug,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			o := options.ApplyOptions(tc.opts...)
+			assert.Equal(t, tc.expected, o.Level)
+		})
+	}
+}
+
 func TestWithLogLevelFromEnvVar(t *testing.T) {
 	defer func() {
 		if x := recover(); x == nil {

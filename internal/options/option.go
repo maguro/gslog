@@ -21,20 +21,19 @@ package options
 
 import (
 	"log/slog"
-	"math"
 
 	"m4o.io/gslog/internal/entry"
-)
-
-const (
-	levelUnknown = slog.Level(math.MaxInt)
 )
 
 // Options holds the information necessary to construct an instance of
 // GcpHandler.
 type Options struct {
+	// ExplicitLogLevel, EnvVarLogLevel, and DefaultLogLevel hold the levels
+	// from the level options.  A nil value means that no option set the
+	// level.  ApplyOptions puts the first value that is not nil, in this
+	// order, into Level.
 	ExplicitLogLevel slog.Leveler
-	EnvVarLogLevel   slog.Level
+	EnvVarLogLevel   slog.Leveler
 	DefaultLogLevel  slog.Leveler
 
 	EntryAugmentors []entry.Augmentor
@@ -86,32 +85,19 @@ type Options struct {
 // ApplyOptions applies the options to an instance of Options.  ApplyOptions
 // returns that instance.  The type O is the option type of the package gslog.
 func ApplyOptions[O ~func(o *Options)](options ...O) *Options {
-	opts := &Options{
-		EnvVarLogLevel:   levelUnknown,
-		ExplicitLogLevel: levelUnknown,
-		DefaultLogLevel:  levelUnknown,
-
-		EntryAugmentors: nil,
-		ErrorReporter:   nil,
-		AddSource:       false,
-		Level:           slog.LevelInfo,
-		ReplaceAttr:     nil,
-	}
+	opts := &Options{}
 	for _, opt := range options {
 		opt(opts)
 	}
 
-	opts.Level = opts.DefaultLogLevel
-
-	if opts.EnvVarLogLevel != levelUnknown {
-		opts.Level = opts.EnvVarLogLevel
-	}
-
-	if opts.ExplicitLogLevel != levelUnknown {
+	switch {
+	case opts.ExplicitLogLevel != nil:
 		opts.Level = opts.ExplicitLogLevel
-	}
-
-	if opts.Level == levelUnknown {
+	case opts.EnvVarLogLevel != nil:
+		opts.Level = opts.EnvVarLogLevel
+	case opts.DefaultLogLevel != nil:
+		opts.Level = opts.DefaultLogLevel
+	default:
 		opts.Level = slog.LevelInfo
 	}
 

@@ -27,8 +27,13 @@ import (
 type Option func(o *options.Options)
 
 // WithLeveler returns an option that specifies the slog.Leveler for logging.
-// This option has precedence over the other log level options.
+// This option has precedence over the other log level options.  If leveler
+// is nil, the option has no effect.
 func WithLeveler(leveler slog.Leveler) Option {
+	if leveler == nil {
+		return func(_ *options.Options) {}
+	}
+
 	return func(o *options.Options) {
 		o.ExplicitLogLevel = leveler
 	}
@@ -68,8 +73,13 @@ func WithLogLevelFromEnvVar(key string) Option {
 }
 
 // WithDefaultLeveler returns an option that specifies the default
-// slog.Leveler for logging.
+// slog.Leveler for logging.  If defaultLeveler is nil, the option has no
+// effect.
 func WithDefaultLeveler(defaultLeveler slog.Leveler) Option {
+	if defaultLeveler == nil {
+		return func(_ *options.Options) {}
+	}
+
 	return func(o *options.Options) {
 		o.DefaultLogLevel = defaultLeveler
 	}
