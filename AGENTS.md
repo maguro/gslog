@@ -35,6 +35,25 @@ single pass of authoring misses.
 A change that touches code is not proposed as done until `make check` passes,
 run in the actual working tree, not a scratch copy or worktree.
 
+## Benchmarks for changes on the log path
+
+A change on the log path, that is `Handle`, `WithAttrs`, `WithGroup`, or a
+package they call for each record, is measured before and after the change,
+on the same machine in the same session, with the two benchmark packages:
+
+```sh
+go test ./gcp/benchmark/ ./stdout/benchmark/ -run '^$' -bench . -benchmem -count=5
+```
+
+Compare the medians. If no benchmark covers the path that changed, add one in
+the same change. A performance change is not done until the numbers show the
+gain. A correctness change on the log path reports its cost.
+
+The commit message states the result in a separate paragraph: the allocation
+counts per record and the names of the benchmarks that changed, with no time
+figures. Allocation counts are exact and the same on every machine; times
+drift between runs and age with every CPU and Go release.
+
 ## Code comments
 
 All code comments must follow ASD-STE100 (Simplified Technical English):
