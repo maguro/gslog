@@ -73,9 +73,9 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	return entry.WithLabels(ctx, labels)
 }
 
-// ExtractLabels returns the labels that WithLabels stored in ctx.  The
+// LabelsFrom returns the labels that WithLabels stored in ctx.  The
 // returned map is a copy.
-func ExtractLabels(ctx context.Context) map[string]string {
+func LabelsFrom(ctx context.Context) map[string]string {
 	labels := entry.LabelsFrom(ctx)
 
 	return maps.Clone(labels)

@@ -48,7 +48,7 @@ var _ = Describe("labels", func() {
 		})
 
 		It("they can be extracted from the context", func() {
-			labels := gslog.ExtractLabels(ctx)
+			labels := gslog.LabelsFrom(ctx)
 
 			Ω(labels).Should(HaveLen(2))
 			Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -61,7 +61,7 @@ var _ = Describe("labels", func() {
 			})
 
 			It("the overrides can be extracted from the context", func() {
-				labels := gslog.ExtractLabels(ctx)
+				labels := gslog.LabelsFrom(ctx)
 
 				Ω(labels).Should(HaveLen(2))
 				Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -86,7 +86,7 @@ var _ = Describe("labels", func() {
 		})
 
 		It("only 64 labels can be obtained from the context", func() {
-			labels := gslog.ExtractLabels(ctx)
+			labels := gslog.LabelsFrom(ctx)
 
 			Ω(labels).Should(HaveLen(64))
 			Ω(labels).Should(HaveKeyWithValue("how", "now"))
@@ -134,6 +134,6 @@ func init() {
 	}
 }
 
-func BenchmarkExtractLabels(b *testing.B) {
-	gslog.ExtractLabels(ctx)
+func BenchmarkLabelsFrom(b *testing.B) {
+	gslog.LabelsFrom(ctx)
 }
