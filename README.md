@@ -270,6 +270,20 @@ module outside the standard library. The handler writes each entry before the
 log call returns, so no entry waits in a buffer when the instance stops. All
 options in the table below work with both handlers.
 
+### Attributes the Stdout Handler Discards
+
+The handler owns the members that the agent maps to fields of the entry. It
+discards a top-level attribute or group with the key `severity`, `message`,
+`timestamp`, `logging.googleapis.com/labels`,
+`logging.googleapis.com/sourceLocation`, `logging.googleapis.com/spanId`,
+`logging.googleapis.com/trace`, or `logging.googleapis.com/trace_sampled`,
+because the agent would read the attribute as that field instead of the
+value the handler wrote. It also discards `time`, `timestampSeconds`, and
+`timestampNanos`, which the agent reads as the timestamp. The other special
+keys of the agent, such as `httpRequest`, pass through, so a program can set
+those fields with an attribute. An attribute that needs one of the discarded
+names keeps it inside a group, where no key is special.
+
 ## Logger Configuration Options
 
 `gcp.NewHandler(logger, ...options)` and `stdout.NewHandler(w, ...options)`

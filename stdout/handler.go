@@ -39,11 +39,17 @@ import (
 // a top-level attribute or group that has the key of one of these fields:
 //
 //   - "severity", "message", and "timestamp"
+//   - "time", "timestampSeconds", and "timestampNanos", which the agent
+//     also reads as the timestamp
 //   - "logging.googleapis.com/labels"
 //   - "logging.googleapis.com/sourceLocation"
 //   - "logging.googleapis.com/spanId"
 //   - "logging.googleapis.com/trace"
 //   - "logging.googleapis.com/trace_sampled"
+//
+// The handler writes a top-level attribute or group that has another special
+// key of the agent, such as "httpRequest", unchanged.  The agent then sets
+// that field of the entry from the attribute.
 //
 // The errorreporting.WithService option causes the handler to write the
 // fields "@type", "serviceContext", and "stack_trace".  In a record that has

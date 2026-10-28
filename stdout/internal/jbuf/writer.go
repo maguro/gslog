@@ -29,15 +29,20 @@ import (
 	"m4o.io/gslog/internal/timefmt"
 )
 
-// The keys that the Google Cloud logging agent reads from a JSON line.
+// The keys that the Google Cloud logging agent reads from a JSON line.  The
+// agent also reads "time", "timestampSeconds", and "timestampNanos" as the
+// timestamp.  The handler never writes these three keys.
 const (
-	agentSeverityKey       = "severity"
-	agentTimestampKey      = "timestamp"
-	agentLabelsKey         = "logging.googleapis.com/labels"
-	agentSourceLocationKey = "logging.googleapis.com/sourceLocation"
-	agentSpanIDKey         = "logging.googleapis.com/spanId"
-	agentTraceKey          = "logging.googleapis.com/trace"
-	agentTraceSampledKey   = "logging.googleapis.com/trace_sampled"
+	agentSeverityKey         = "severity"
+	agentTimestampKey        = "timestamp"
+	agentTimeKey             = "time"
+	agentTimestampSecondsKey = "timestampSeconds"
+	agentTimestampNanosKey   = "timestampNanos"
+	agentLabelsKey           = "logging.googleapis.com/labels"
+	agentSourceLocationKey   = "logging.googleapis.com/sourceLocation"
+	agentSpanIDKey           = "logging.googleapis.com/spanId"
+	agentTraceKey            = "logging.googleapis.com/trace"
+	agentTraceSampledKey     = "logging.googleapis.com/trace_sampled"
 )
 
 const (
@@ -124,8 +129,12 @@ func ReleaseWriter(w *Writer) {
 // error report.
 func (w *Writer) Member(key string) *Writer {
 	switch key {
-	case gslog.MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
-		agentSpanIDKey, agentTraceKey, agentTraceSampledKey:
+	// The handler drops these keys.  It writes the first eight itself.  The
+	// agent reads the other three as the timestamp, so a value under one of
+	// them would compete with the "timestamp" member that the handler writes.
+	case gslog.MessageKey, agentSeverityKey, agentLabelsKey, agentSourceLocationKey, agentSpanIDKey,
+		agentTraceKey, agentTraceSampledKey, agentTimestampKey,
+		agentTimeKey, agentTimestampSecondsKey, agentTimestampNanosKey:
 		return nil
 	case entry.ReportTypeKey, entry.ServiceContextKey, entry.StackTraceKey:
 		return w.reportMember()

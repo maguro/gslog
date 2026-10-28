@@ -115,12 +115,18 @@ func TestHandler_groups(t *testing.T) {
 func TestHandler_reservedKeysAreDropped(t *testing.T) {
 	var buf bytes.Buffer
 
-	slog.New(stdout.NewHandler(&buf)).Info("hello", "severity", "bogus", "timestamp", "bogus", "kept", 1)
+	slog.New(stdout.NewHandler(&buf)).Info("hello",
+		"severity", "bogus", "timestamp", "bogus",
+		"time", "bogus", "timestampSeconds", 1, "timestampNanos", 2,
+		"kept", 1)
 
 	got := decodeLine(t, &buf)
 
 	assert.Equal(t, "INFO", got["severity"])
 	assert.NotEqual(t, "bogus", got["timestamp"])
+	assert.NotContains(t, got, "time")
+	assert.NotContains(t, got, "timestampSeconds")
+	assert.NotContains(t, got, "timestampNanos")
 	assert.Equal(t, 1.0, got["kept"])
 }
 
