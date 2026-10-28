@@ -12,13 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package k8s contains options that include labels from the Kubernetes Downward
-API podinfo labels file in logging records.
-
-The options are in a separate package.  Because of this, a module that does
-not need labels from the Kubernetes Downward API has fewer dependencies.
-*/
+// Package k8s contains options that include labels from the Kubernetes
+// Downward API podinfo labels file in logging records.
+//
+// The options are in a separate package.  Because of this, a module that does
+// not need labels from the Kubernetes Downward API has fewer dependencies.
 package k8s
 
 import (

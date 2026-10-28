@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package attr contains code that maps slog.Attr attributes to their
-corresponding structpb.Value values.
-*/
+// Package attr contains code that maps slog.Attr attributes to their
+// corresponding structpb.Value values.
 package attr
 
 import (

@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package options holds the options handling code.
-
-The Options struct is in this internal package to limit access to it.
-*/
+// Package options holds the options handling code.
+//
+// The Options struct is in this internal package to limit access to it.
 package options
 
 import (
