@@ -12,18 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command exampledoc writes the testable examples of packages to a Markdown
+// Command exampledoc writes the testable examples of the module to a Markdown
 // file.
 //
 // Usage:
 //
-//	exampledoc [-check] [-o file] dir...
+//	exampledoc [-check] [-o file]
 //
-// Each dir is the directory of a package.  The command reads the example
-// functions in the _test.go files of each directory.  For each example, the
-// Markdown file shows the doc comment, the complete program, and the output.
-// Each example must be in an external test package, such as stdout_test.  An
-// example must use only the declarations in its own file.
+// Run the command in the directory of the go.mod file.  The command finds
+// each package of the module that has example functions in its _test.go
+// files.  The command does not look in the internal packages, in testdata
+// directories, in vendor, in a nested module, or in a directory with a name
+// that starts with "." or "_".  The sections of the file are in order of
+// import path, so the root package is first.
+//
+// For each example, the Markdown file shows the doc comment, the complete
+// program, and the output.  Each example must be in an external test package,
+// such as stdout_test.  An example must use only the declarations in its own
+// file.
 //
 // The -o flag names the Markdown file.  The default is docs/examples.md.
 //
@@ -45,6 +51,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -85,7 +92,11 @@ func run() error {
 
 	flag.Parse()
 
-	text, err := render(flag.Args())
+	if flag.NArg() > 0 {
+		return errors.New("the command takes no arguments")
+	}
+
+	text, err := render(".")
 	if err != nil {
 		return err
 	}
@@ -97,13 +108,17 @@ func run() error {
 	return os.WriteFile(*out, text, filePerm)
 }
 
-// render returns the Markdown text for the packages in dirs.
-func render(dirs []string) ([]byte, error) {
-	if len(dirs) == 0 {
-		return nil, errors.New("no package directories")
+// render returns the Markdown text for the packages of the module in root
+// that have examples.
+func render(root string) ([]byte, error) {
+	goMod := filepath.Join(root, "go.mod")
+
+	module, err := modulePath(goMod)
+	if err != nil {
+		return nil, err
 	}
 
-	module, err := modulePath("go.mod")
+	pkgs, err := loadPackages(root, module)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +127,8 @@ func render(dirs []string) ([]byte, error) {
 
 	buf.WriteString(header)
 
-	for _, dir := range dirs {
-		err = renderPackage(&buf, module, dir)
+	for _, p := range pkgs {
+		err = renderPackage(&buf, p)
 		if err != nil {
 			return nil, err
 		}
@@ -122,35 +137,179 @@ func render(dirs []string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// renderPackage writes the package doc comment and the examples of the
-// package in dir to buf.  The examples are in order of file name, and then
-// in source order.
-func renderPackage(buf *bytes.Buffer, module, dir string) error {
+// pkg is a package of the module that has examples.
+type pkg struct {
+	importPath string
+	name       string
+	doc        string
+	fset       *token.FileSet
+	examples   []*doc.Example
+}
+
+// loadPackages returns the packages of the module in root that have
+// examples, in order of import path.  The root package is first.  The walk
+// does not enter a nested module.
+func loadPackages(root, module string) ([]*pkg, error) {
+	var pkgs []*pkg
+
+	err := filepath.WalkDir(root, func(dir string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !d.IsDir() {
+			return nil
+		}
+
+		if dir != root && (skipDir(d.Name()) || isModuleRoot(dir)) {
+			return filepath.SkipDir
+		}
+
+		rel, err := filepath.Rel(root, dir)
+		if err != nil {
+			return err
+		}
+
+		pkgPath := importPath(module, rel)
+
+		p, err := loadPackage(dir, pkgPath)
+		if err != nil {
+			return err
+		}
+
+		if p != nil {
+			pkgs = append(pkgs, p)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slices.SortFunc(pkgs, func(a, b *pkg) int {
+		return strings.Compare(a.importPath, b.importPath)
+	})
+
+	return pkgs, nil
+}
+
+// skipDir reports whether the walk does not enter the directory with the
+// name.  The walk does not enter internal, testdata, vendor, and a directory
+// with a name that starts with "." or "_".
+func skipDir(name string) bool {
+	switch name {
+	case "internal", "testdata", "vendor":
+		return true
+	}
+
+	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+}
+
+// isModuleRoot reports whether dir has a go.mod file.
+func isModuleRoot(dir string) bool {
+	goMod := filepath.Join(dir, "go.mod")
+
+	_, err := os.Stat(goMod)
+
+	return err == nil
+}
+
+// loadPackage returns the package in dir with its examples.  loadPackage
+// returns nil when dir has no Go files, or when the package has no examples.
+func loadPackage(dir, importPath string) (*pkg, error) {
+	bp, err := build.ImportDir(dir, 0)
+
+	var noGo *build.NoGoError
+	if errors.As(err, &noGo) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	fset := token.NewFileSet()
 
-	name, pkgDoc, tests, err := parseDir(fset, dir)
+	pkgDoc, err := packageDoc(fset, dir, bp.GoFiles)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	testFiles := slices.Concat(bp.TestGoFiles, bp.XTestGoFiles)
+
+	tests, err := parseFiles(fset, dir, testFiles)
+	if err != nil {
+		return nil, err
 	}
 
 	examples := doc.Examples(tests...)
 	if len(examples) == 0 {
-		return fmt.Errorf("%s: no examples", dir)
+		return nil, nil
 	}
 
 	slices.SortFunc(examples, func(a, b *doc.Example) int {
 		return cmp.Compare(a.Code.Pos(), b.Code.Pos())
 	})
 
-	pkgPath := importPath(module, dir)
-	synopsis := markdown(pkgDoc)
+	return &pkg{
+		importPath: importPath,
+		name:       bp.Name,
+		doc:        pkgDoc,
+		fset:       fset,
+		examples:   examples,
+	}, nil
+}
 
-	fmt.Fprintf(buf, "\n## %s\n\n%s", pkgPath, synopsis)
+// packageDoc returns the package doc comment from the non-test files in dir.
+func packageDoc(fset *token.FileSet, dir string, files []string) (string, error) {
+	pkgDoc := ""
 
-	for _, ex := range examples {
-		err = renderExample(buf, fset, name, ex)
+	for _, file := range files {
+		name := filepath.Join(dir, file)
+
+		f, err := parser.ParseFile(fset, name, nil, parser.PackageClauseOnly|parser.ParseComments)
 		if err != nil {
-			return fmt.Errorf("%s: %w", dir, err)
+			return "", err
+		}
+
+		if f.Doc != nil {
+			pkgDoc = f.Doc.Text()
+		}
+	}
+
+	return pkgDoc, nil
+}
+
+// parseFiles parses the test files in dir.
+func parseFiles(fset *token.FileSet, dir string, files []string) ([]*ast.File, error) {
+	parsed := make([]*ast.File, 0, len(files))
+
+	for _, file := range files {
+		name := filepath.Join(dir, file)
+
+		f, err := parser.ParseFile(fset, name, nil, parser.ParseComments)
+		if err != nil {
+			return nil, err
+		}
+
+		parsed = append(parsed, f)
+	}
+
+	return parsed, nil
+}
+
+// renderPackage writes the package doc comment and the examples of p to buf.
+// The examples are in order of file name, and then in source order.
+func renderPackage(buf *bytes.Buffer, p *pkg) error {
+	synopsis := markdown(p.doc)
+
+	fmt.Fprintf(buf, "\n## %s\n\n%s", p.importPath, synopsis)
+
+	for _, ex := range p.examples {
+		err := renderExample(buf, p.fset, p.name, ex)
+		if err != nil {
+			return fmt.Errorf("%s: %w", p.importPath, err)
 		}
 	}
 
@@ -194,44 +353,6 @@ func renderExample(buf *bytes.Buffer, fset *token.FileSet, pkg string, ex *doc.E
 	}
 
 	return nil
-}
-
-// parseDir parses the Go files in dir that match the build context.
-// parseDir returns the package name and the package doc comment from the
-// non-test files, and the parsed test files.
-func parseDir(fset *token.FileSet, dir string) (name, pkgDoc string, tests []*ast.File, err error) {
-	pkg, err := build.ImportDir(dir, 0)
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	for _, file := range pkg.GoFiles {
-		path := filepath.Join(dir, file)
-
-		f, perr := parser.ParseFile(fset, path, nil, parser.PackageClauseOnly|parser.ParseComments)
-		if perr != nil {
-			return "", "", nil, perr
-		}
-
-		if f.Doc != nil {
-			pkgDoc = f.Doc.Text()
-		}
-	}
-
-	testFiles := slices.Concat(pkg.TestGoFiles, pkg.XTestGoFiles)
-
-	for _, file := range testFiles {
-		path := filepath.Join(dir, file)
-
-		f, perr := parser.ParseFile(fset, path, nil, parser.ParseComments)
-		if perr != nil {
-			return "", "", nil, perr
-		}
-
-		tests = append(tests, f)
-	}
-
-	return pkg.Name, pkgDoc, tests, nil
 }
 
 // importPath returns the import path of the package in dir.  dir is relative

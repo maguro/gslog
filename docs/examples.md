@@ -321,528 +321,13 @@ Output:
 {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"operation":"checkout","region":"eu","tenant":"acme"}}
 ```
 
-## m4o.io/gslog/stdout
+## m4o.io/gslog/errorreporting
 
-Package stdout contains a slog.Handler that writes each log record to a writer as one line of JSON.  The line has the structured logging format that the Google Cloud logging agent reads.
+Package errorreporting contains an option for Google Cloud Error Reporting. The option causes the handler to write the fields that Error Reporting reads.  The handler writes the fields in each record at level Error or higher.  The package imports no module outside the standard library.
 
-### stdout.NewHandler
+### errorreporting.WithService
 
-NewHandler writes each entry to the writer as one line of JSON in the format that the Google Cloud logging agent reads.
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-func main() {
-	h := stdout.NewHandler(os.Stdout)
-
-	r := newRecord(slog.String("animal", "cow"))
-
-	_ = h.Handle(context.Background(), r)
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","animal":"cow"}
-```
-
-### stdout.Handler.Handle (payloadMapping)
-
-The stdout.Handler writes the nested group attributes of the handler as nested JSON objects.  The message is at the root of the object with the key "message".
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-func main() {
-	u := User{ID: "user-12234", FirstName: "Jan", LastName: "Doe"}
-
-	var h slog.Handler = stdout.NewHandler(os.Stdout)
-	h = h.WithGroup("pub")
-	h = h.WithAttrs([]slog.Attr{slog.Any("user", u)})
-
-	_ = h.Handle(context.Background(), newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"user":{"id":"user-12234","first_name":"Jan","last_name":"Doe"}}}
-```
-
-### stdout.Handler.Handle (withLabels)
-
-The stdout.Handler writes the labels in the context in the field "logging.googleapis.com/labels".
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-func main() {
-	h := stdout.NewHandler(os.Stdout)
-
-	ctx := context.Background()
-	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
-
-	_ = h.Handle(ctx, newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"a":"one","b":"two"}}
-```
-
-### stdout.NewHandler (withK8sPodinfo)
-
-With the k8s.WithPodinfoLabels() option, stdout.Handler adds labels from the configured Kubernetes Downward API podinfo labels file to the field "logging.googleapis.com/labels".
-
-The handler adds the prefix "k8s-pod/" to each label.  This follows the Google Cloud Logging conventions for Kubernetes Pod labels.
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/k8s"
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-func main() {
-	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("../k8s/testdata/etc/podinfo"))
-
-	ctx := context.Background()
-	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
-
-	_ = h.Handle(ctx, newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"a":"one","b":"two","k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
-```
-
-### stdout.NewHandler (withOpenTelemetryBaggage)
-
-With the otel.WithBaggage() option, stdout.Handler adds the baggage.Baggage in the context as attributes.
-
-The handler adds the prefix "otel-baggage/" to each baggage key.  The prefix makes collisions with other log attributes less likely.  The handler writes the baggage attributes after the attributes of the record.
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"go.opentelemetry.io/otel/baggage"
-
-	"m4o.io/gslog/otel"
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-func main() {
-	h := stdout.NewHandler(os.Stdout, otel.WithBaggage())
-
-	ctx := context.Background()
-	ctx = baggage.ContextWithBaggage(ctx, otel.MustParse("a=one,b=two;p1;p2=val2"))
-
-	_ = h.Handle(ctx, newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","otel-baggage/a":"one","otel-baggage/b":{"value":"two","properties":{"p1":null,"p2":"val2"}}}
-```
-
-### stdout.NewHandler (withOpenTelemetryTrace)
-
-With the otel.WithTracing() option, stdout.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the line.
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"go.opentelemetry.io/otel/trace"
-
-	"m4o.io/gslog/otel"
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-func main() {
-	h := stdout.NewHandler(os.Stdout, otel.WithTracing("my-project"))
-
-	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
-	spanID, _ := trace.SpanIDFromHex("d3e9e8c51cb190df")
-	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID:    traceID,
-		SpanID:     spanID,
-		TraceFlags: trace.FlagsSampled,
-	})
-
-	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
-
-	_ = h.Handle(ctx, newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/trace":"projects/my-project/traces/52fc1643a9381fc674742bb0067101e7","logging.googleapis.com/spanId":"d3e9e8c51cb190df","logging.googleapis.com/trace_sampled":true}
-```
-
-### stdout.NewHandler (withSourceAdded)
-
-With the gslog.WithSourceAdded() option, stdout.Handler adds the field "logging.googleapis.com/sourceLocation" to the line.  This field is expensive to compute.
-
-```go
-package main
-
-import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"log/slog"
-	"runtime"
-	"time"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-func main() {
-	var buf bytes.Buffer
-
-	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
-
-	var pcs [1]uintptr
-
-	runtime.Callers(1, pcs[:])
-
-	r := slog.NewRecord(time.Time{}, slog.LevelInfo, "How now brown cow?", pcs[0])
-
-	_ = h.Handle(context.Background(), r)
-
-	// The file is an absolute path.  The example prints the end of the path.
-	var line map[string]any
-
-	_ = json.Unmarshal(buf.Bytes(), &line)
-
-	loc, _ := line["logging.googleapis.com/sourceLocation"].(map[string]any)
-	file, _ := loc["file"].(string)
-	loc["file"] = file[len(file)-len("stdout/example_test.go"):]
-
-	b, _ := json.Marshal(loc)
-
-	fmt.Println(string(b))
-
-}
-```
-
-Output:
-
-```text
-{"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"160"}
-```
-
-### stdout.NewHandler (withReplaceAttr)
-
-With the gslog.WithReplaceAttr() option, stdout.Handler applies the supplied gslog.AttrMapper to each non-group attribute before the handler writes the attribute.
-
-```go
-package main
-
-import (
-	"context"
-	"log/slog"
-	"os"
-	"time"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-// newRecord returns an Info record with a fixed time and the message "How
-// now brown cow?".  A fixed time keeps the timestamp of the example output
-// the same on each run.
-func newRecord(attrs ...slog.Attr) slog.Record {
-	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-
-	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
-	r.AddAttrs(attrs...)
-
-	return r
-}
-
-// RemovePassword is a gslog.AttrMapper that elides password attributes.
-func RemovePassword(_ []string, a slog.Attr) slog.Attr {
-	if a.Key == "password" {
-		return slog.Attr{}
-	}
-
-	return a
-}
-
-func main() {
-	var h slog.Handler = stdout.NewHandler(os.Stdout, gslog.WithReplaceAttr(RemovePassword))
-	h = h.WithGroup("pub")
-	h = h.WithAttrs([]slog.Attr{slog.String("username", "user-12234"), slog.String("password", "hunter2")})
-
-	_ = h.Handle(context.Background(), newRecord())
-
-}
-```
-
-Output:
-
-```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"username":"user-12234"}}
-```
-
-### stdout.NewHandler (withLeveler)
-
-With the gslog.WithLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log/slog"
-	"os"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-func main() {
-	h := stdout.NewHandler(os.Stdout, gslog.WithLeveler(slog.LevelError))
-
-	ctx := context.Background()
-
-	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
-
-}
-```
-
-Output:
-
-```text
-false true
-```
-
-### stdout.NewHandler (withLogLevelFromEnvVar)
-
-With the gslog.WithLogLevelFromEnvVar() option, stdout.Handler reads its log level from the environment variable that the key names.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log/slog"
-	"os"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-func main() {
-	const envVar = "FOO_LOG_LEVEL"
-	_ = os.Setenv(envVar, "ERROR")
-	defer func() {
-		_ = os.Unsetenv(envVar)
-	}()
-
-	h := stdout.NewHandler(os.Stdout, gslog.WithLogLevelFromEnvVar(envVar))
-
-	ctx := context.Background()
-
-	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
-
-}
-```
-
-Output:
-
-```text
-false true
-```
-
-### stdout.NewHandler (withDefaultLeveler)
-
-The gslog.WithDefaultLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log/slog"
-	"os"
-
-	"m4o.io/gslog"
-	"m4o.io/gslog/stdout"
-)
-
-func main() {
-	const envVar = "FOO_LOG_LEVEL"
-
-	h := stdout.NewHandler(os.Stdout,
-		gslog.WithLogLevelFromEnvVar(envVar),
-		gslog.WithDefaultLeveler(slog.LevelError),
-	)
-
-	ctx := context.Background()
-
-	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
-
-}
-```
-
-Output:
-
-```text
-false true
-```
-
-### stdout.NewHandler (withErrorReporting)
-
-With the errorreporting.WithService() option, stdout.Handler writes the fields that Google Cloud Error Reporting reads.  The handler writes the fields in each record at level Error or higher.  The field "stack\_trace" holds the stack of the log call.
+Error Reporting reads an entry that has the fields of a ReportedErrorEvent. The handler writes these fields in each record at level Error or higher. The Info record has no report fields.  The Error record has the type, the service context, and a stack trace.
 
 ```go
 package main
@@ -852,6 +337,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/stdout"
@@ -861,24 +347,25 @@ func main() {
 	var buf bytes.Buffer
 
 	h := stdout.NewHandler(&buf, errorreporting.WithService("checkout", "v1.2.0"))
-	l := slog.New(h)
+	logger := slog.New(h)
 
-	l.Error("Payment failed")
+	logger.Info("Payment started")
+	logger.Error("Payment failed")
 
-	// The stack trace is different on each run.  The example prints the
-	// other fields.
-	var line map[string]any
+	// The timestamp and the stack trace are different on each run.  The
+	// example removes these two fields and prints the rest of each line.
+	for line := range strings.Lines(buf.String()) {
+		var fields map[string]any
 
-	_ = json.Unmarshal(buf.Bytes(), &line)
+		_ = json.Unmarshal([]byte(line), &fields)
 
-	report := map[string]any{
-		"@type":          line["@type"],
-		"serviceContext": line["serviceContext"],
+		delete(fields, "timestamp")
+		delete(fields, "stack_trace")
+
+		b, _ := json.Marshal(fields)
+
+		fmt.Println(string(b))
 	}
-
-	b, _ := json.Marshal(report)
-
-	fmt.Println(string(b))
 
 }
 ```
@@ -886,7 +373,8 @@ func main() {
 Output:
 
 ```text
-{"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
+{"message":"Payment started","severity":"INFO"}
+{"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","message":"Payment failed","serviceContext":{"service":"checkout","version":"v1.2.0"},"severity":"ERROR"}
 ```
 
 ## m4o.io/gslog/gcp
@@ -1805,6 +1293,46 @@ Output:
 {"message":"Card authorized"}
 ```
 
+## m4o.io/gslog/k8s
+
+Package k8s contains options that include labels from the Kubernetes Downward API podinfo labels file in logging records.
+
+The options are in a separate package.  Because of this, a module that does not need labels from the Kubernetes Downward API has fewer dependencies.
+
+### k8s.WithPodinfoLabels
+
+In a Pod, a volume of the Downward API holds the labels file.  The option takes the directory of the volume.  Each entry then has the labels of the Pod.  The example uses the labels file in the testdata directory.  The handler adds the prefix "k8s-pod/" to each label.  The handler writes the labels in key order.  A fixed time keeps the timestamp of the output the same on each run.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog/k8s"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("testdata/etc/podinfo"))
+
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+
+	_ = h.Handle(context.Background(), r)
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
+```
+
 ## m4o.io/gslog/otel
 
 Package otel contains options that include OpenTelemetry baggage and tracing in logging records.
@@ -2047,15 +1575,13 @@ func main() {
 }
 ```
 
-## m4o.io/gslog/k8s
+## m4o.io/gslog/stdout
 
-Package k8s contains options that include labels from the Kubernetes Downward API podinfo labels file in logging records.
+Package stdout contains a slog.Handler that writes each log record to a writer as one line of JSON.  The line has the structured logging format that the Google Cloud logging agent reads.
 
-The options are in a separate package.  Because of this, a module that does not need labels from the Kubernetes Downward API has fewer dependencies.
+### stdout.NewHandler
 
-### k8s.WithPodinfoLabels
-
-In a Pod, a volume of the Downward API holds the labels file.  The option takes the directory of the volume.  Each entry then has the labels of the Pod.  The example uses the labels file in the testdata directory.  The handler adds the prefix "k8s-pod/" to each label.  The handler writes the labels in key order.  A fixed time keeps the timestamp of the output the same on each run.
+NewHandler writes each entry to the writer as one line of JSON in the format that the Google Cloud logging agent reads.
 
 ```go
 package main
@@ -2066,15 +1592,25 @@ import (
 	"os"
 	"time"
 
-	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/stdout"
 )
 
-func main() {
-	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("testdata/etc/podinfo"))
-
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
 	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
 	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout)
+
+	r := newRecord(slog.String("animal", "cow"))
 
 	_ = h.Handle(context.Background(), r)
 
@@ -2084,16 +1620,483 @@ func main() {
 Output:
 
 ```text
-{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","animal":"cow"}
 ```
 
-## m4o.io/gslog/errorreporting
+### stdout.Handler.Handle (payloadMapping)
 
-Package errorreporting contains an option for Google Cloud Error Reporting. The option causes the handler to write the fields that Error Reporting reads.  The handler writes the fields in each record at level Error or higher.  The package imports no module outside the standard library.
+The stdout.Handler writes the nested group attributes of the handler as nested JSON objects.  The message is at the root of the object with the key "message".
 
-### errorreporting.WithService
+```go
+package main
 
-Error Reporting reads an entry that has the fields of a ReportedErrorEvent. The handler writes these fields in each record at level Error or higher. The Info record has no report fields.  The Error record has the type, the service context, and a stack trace.
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+type User struct {
+	ID        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+func main() {
+	u := User{ID: "user-12234", FirstName: "Jan", LastName: "Doe"}
+
+	var h slog.Handler = stdout.NewHandler(os.Stdout)
+	h = h.WithGroup("pub")
+	h = h.WithAttrs([]slog.Attr{slog.Any("user", u)})
+
+	_ = h.Handle(context.Background(), newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"user":{"id":"user-12234","first_name":"Jan","last_name":"Doe"}}}
+```
+
+### stdout.Handler.Handle (withLabels)
+
+The stdout.Handler writes the labels in the context in the field "logging.googleapis.com/labels".
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout)
+
+	ctx := context.Background()
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
+
+	_ = h.Handle(ctx, newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"a":"one","b":"two"}}
+```
+
+### stdout.NewHandler (withK8sPodinfo)
+
+With the k8s.WithPodinfoLabels() option, stdout.Handler adds labels from the configured Kubernetes Downward API podinfo labels file to the field "logging.googleapis.com/labels".
+
+The handler adds the prefix "k8s-pod/" to each label.  This follows the Google Cloud Logging conventions for Kubernetes Pod labels.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/k8s"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("../k8s/testdata/etc/podinfo"))
+
+	ctx := context.Background()
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
+
+	_ = h.Handle(ctx, newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"a":"one","b":"two","k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
+```
+
+### stdout.NewHandler (withOpenTelemetryBaggage)
+
+With the otel.WithBaggage() option, stdout.Handler adds the baggage.Baggage in the context as attributes.
+
+The handler adds the prefix "otel-baggage/" to each baggage key.  The prefix makes collisions with other log attributes less likely.  The handler writes the baggage attributes after the attributes of the record.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"go.opentelemetry.io/otel/baggage"
+
+	"m4o.io/gslog/otel"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, otel.WithBaggage())
+
+	ctx := context.Background()
+	ctx = baggage.ContextWithBaggage(ctx, otel.MustParse("a=one,b=two;p1;p2=val2"))
+
+	_ = h.Handle(ctx, newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","otel-baggage/a":"one","otel-baggage/b":{"value":"two","properties":{"p1":null,"p2":"val2"}}}
+```
+
+### stdout.NewHandler (withOpenTelemetryTrace)
+
+With the otel.WithTracing() option, stdout.Handler adds the OpenTelemetry trace.SpanContext information in the context to the tracing fields of the line.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"go.opentelemetry.io/otel/trace"
+
+	"m4o.io/gslog/otel"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, otel.WithTracing("my-project"))
+
+	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
+	spanID, _ := trace.SpanIDFromHex("d3e9e8c51cb190df")
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+
+	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
+
+	_ = h.Handle(ctx, newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/trace":"projects/my-project/traces/52fc1643a9381fc674742bb0067101e7","logging.googleapis.com/spanId":"d3e9e8c51cb190df","logging.googleapis.com/trace_sampled":true}
+```
+
+### stdout.NewHandler (withSourceAdded)
+
+With the gslog.WithSourceAdded() option, stdout.Handler adds the field "logging.googleapis.com/sourceLocation" to the line.  This field is expensive to compute.
+
+```go
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"runtime"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	var buf bytes.Buffer
+
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
+
+	var pcs [1]uintptr
+
+	runtime.Callers(1, pcs[:])
+
+	r := slog.NewRecord(time.Time{}, slog.LevelInfo, "How now brown cow?", pcs[0])
+
+	_ = h.Handle(context.Background(), r)
+
+	// The file is an absolute path.  The example prints the end of the path.
+	var line map[string]any
+
+	_ = json.Unmarshal(buf.Bytes(), &line)
+
+	loc, _ := line["logging.googleapis.com/sourceLocation"].(map[string]any)
+	file, _ := loc["file"].(string)
+	loc["file"] = file[len(file)-len("stdout/example_test.go"):]
+
+	b, _ := json.Marshal(loc)
+
+	fmt.Println(string(b))
+
+}
+```
+
+Output:
+
+```text
+{"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"160"}
+```
+
+### stdout.NewHandler (withReplaceAttr)
+
+With the gslog.WithReplaceAttr() option, stdout.Handler applies the supplied gslog.AttrMapper to each non-group attribute before the handler writes the attribute.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+// RemovePassword is a gslog.AttrMapper that elides password attributes.
+func RemovePassword(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == "password" {
+		return slog.Attr{}
+	}
+
+	return a
+}
+
+func main() {
+	var h slog.Handler = stdout.NewHandler(os.Stdout, gslog.WithReplaceAttr(RemovePassword))
+	h = h.WithGroup("pub")
+	h = h.WithAttrs([]slog.Attr{slog.String("username", "user-12234"), slog.String("password", "hunter2")})
+
+	_ = h.Handle(context.Background(), newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"username":"user-12234"}}
+```
+
+### stdout.NewHandler (withLeveler)
+
+With the gslog.WithLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, gslog.WithLeveler(slog.LevelError))
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
+
+}
+```
+
+Output:
+
+```text
+false true
+```
+
+### stdout.NewHandler (withLogLevelFromEnvVar)
+
+With the gslog.WithLogLevelFromEnvVar() option, stdout.Handler reads its log level from the environment variable that the key names.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	const envVar = "FOO_LOG_LEVEL"
+	_ = os.Setenv(envVar, "ERROR")
+	defer func() {
+		_ = os.Unsetenv(envVar)
+	}()
+
+	h := stdout.NewHandler(os.Stdout, gslog.WithLogLevelFromEnvVar(envVar))
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
+
+}
+```
+
+Output:
+
+```text
+false true
+```
+
+### stdout.NewHandler (withDefaultLeveler)
+
+The gslog.WithDefaultLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	const envVar = "FOO_LOG_LEVEL"
+
+	h := stdout.NewHandler(os.Stdout,
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelError),
+	)
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelError))
+
+}
+```
+
+Output:
+
+```text
+false true
+```
+
+### stdout.NewHandler (withErrorReporting)
+
+With the errorreporting.WithService() option, stdout.Handler writes the fields that Google Cloud Error Reporting reads.  The handler writes the fields in each record at level Error or higher.  The field "stack\_trace" holds the stack of the log call.
 
 ```go
 package main
@@ -2103,7 +2106,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/stdout"
@@ -2113,25 +2115,24 @@ func main() {
 	var buf bytes.Buffer
 
 	h := stdout.NewHandler(&buf, errorreporting.WithService("checkout", "v1.2.0"))
-	logger := slog.New(h)
+	l := slog.New(h)
 
-	logger.Info("Payment started")
-	logger.Error("Payment failed")
+	l.Error("Payment failed")
 
-	// The timestamp and the stack trace are different on each run.  The
-	// example removes these two fields and prints the rest of each line.
-	for line := range strings.Lines(buf.String()) {
-		var fields map[string]any
+	// The stack trace is different on each run.  The example prints the
+	// other fields.
+	var line map[string]any
 
-		_ = json.Unmarshal([]byte(line), &fields)
+	_ = json.Unmarshal(buf.Bytes(), &line)
 
-		delete(fields, "timestamp")
-		delete(fields, "stack_trace")
-
-		b, _ := json.Marshal(fields)
-
-		fmt.Println(string(b))
+	report := map[string]any{
+		"@type":          line["@type"],
+		"serviceContext": line["serviceContext"],
 	}
+
+	b, _ := json.Marshal(report)
+
+	fmt.Println(string(b))
 
 }
 ```
@@ -2139,6 +2140,5 @@ func main() {
 Output:
 
 ```text
-{"message":"Payment started","severity":"INFO"}
-{"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","message":"Payment failed","serviceContext":{"service":"checkout","version":"v1.2.0"},"severity":"ERROR"}
+{"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
 ```
