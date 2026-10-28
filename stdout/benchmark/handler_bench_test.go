@@ -80,3 +80,38 @@ func BenchmarkHandleBaggage(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkHandleLabels(b *testing.B) {
+	h := stdout.NewHandler(io.Discard, gslog.WithLeveler(slog.LevelInfo))
+
+	ctx := context.Background()
+	ctx = gslog.WithLabels(ctx,
+		gslog.Label("tenant", "acme"), gslog.Label("region", "eu"),
+		gslog.Label("env", "prod"), gslog.Label("version", "1.2.3"))
+
+	handle(ctx, b, h, slog.String("s", "hello"), slog.Int("n", 42), slog.Bool("b", true))
+}
+
+func BenchmarkHandleTimeAttr(b *testing.B) {
+	h := stdout.NewHandler(io.Discard, gslog.WithLeveler(slog.LevelInfo))
+	ctx := context.Background()
+	ts := time.Date(2000, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	handle(ctx, b, h, slog.Time("t", ts))
+}
+
+// handle runs the benchmark loop.  Each iteration handles one record with
+// attrs.
+func handle(ctx context.Context, b *testing.B, h slog.Handler, attrs ...slog.Attr) {
+	b.Helper()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		r := slog.NewRecord(time.Time{}, slog.LevelInfo, "message", 0)
+		r.AddAttrs(attrs...)
+
+		if err := h.Handle(ctx, r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
