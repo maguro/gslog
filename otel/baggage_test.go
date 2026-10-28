@@ -161,3 +161,9 @@ func TestWithBaggage_repeated(t *testing.T) {
 
 	assert.Equal(t, 1, strings.Count(buf.String(), `"otel-baggage/a"`))
 }
+
+func TestMustParse_invalid(t *testing.T) {
+	assert.Panics(t, func() {
+		otel.MustParse("=")
+	})
+}
