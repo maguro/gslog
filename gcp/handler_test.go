@@ -38,7 +38,6 @@ import (
 	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/internal/attr"
-	"m4o.io/gslog/internal/options"
 	"m4o.io/gslog/internal/testhelp"
 	"m4o.io/gslog/otel"
 )
@@ -1097,7 +1096,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 			line := source(r).Line
 			r.AddAttrs(test.attrs...)
 
-			opts := []options.OptionProcessor{
+			opts := []gslog.Option{
 				gslog.WithReplaceAttr(test.replace),
 				gslog.WithDefaultLeveler(slog.LevelInfo),
 			}

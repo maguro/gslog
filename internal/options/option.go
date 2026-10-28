@@ -83,12 +83,9 @@ type Options struct {
 	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
 }
 
-// OptionProcessor interacts with the supplied Options instance.
-type OptionProcessor func(o *Options)
-
-// ApplyOptions applies the option processors to an instance of Options.
-// ApplyOptions returns that instance.
-func ApplyOptions(options ...OptionProcessor) *Options {
+// ApplyOptions applies the options to an instance of Options.  ApplyOptions
+// returns that instance.  The type O is the option type of the package gslog.
+func ApplyOptions[O ~func(o *Options)](options ...O) *Options {
 	opts := &Options{
 		EnvVarLogLevel:   levelUnknown,
 		ExplicitLogLevel: levelUnknown,

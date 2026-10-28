@@ -22,8 +22,9 @@ import (
 	"m4o.io/gslog/internal/options"
 )
 
-// Option configures a handler.
-type Option = options.OptionProcessor
+// Option configures a handler.  Use the functions that return an Option, such
+// as WithLeveler.
+type Option func(o *options.Options)
 
 // WithLeveler returns an option that specifies the slog.Leveler for logging.
 // This option has precedence over the other log level options.

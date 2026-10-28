@@ -66,7 +66,7 @@ func TestLogLevel(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			var opts []options.OptionProcessor
+			var opts []gslog.Option
 			if tc.explicitLogLevel != levelUnknown {
 				opts = append(opts, gslog.WithLeveler(tc.explicitLogLevel))
 			}
