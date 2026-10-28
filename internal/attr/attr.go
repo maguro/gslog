@@ -18,9 +18,13 @@ package attr
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"log/slog"
+	"math"
+	"strconv"
 	"time"
+	"unicode/utf8"
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
@@ -39,10 +43,11 @@ var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NU
 //
 //   - If the value is a builtin.error and does not implement json.Marshaler,
 //     DecorateWith uses the Error() string.
-//   - If the value maps directly to a spb.Value, DecorateWith uses that
-//     value.
-//   - If DecorateWith can convert the value to a JSON object, DecorateWith
-//     translates that JSON object to a spb.Struct.
+//   - If the value has a type that encoding/json encodes without a
+//     json.Marshaler, DecorateWith maps the value directly with the rules of
+//     encoding/json.
+//   - If encoding/json can encode the value, DecorateWith maps the JSON to a
+//     spb.Value.
 //   - DecorateWith uses the string "!ERROR:" followed by the error text of
 //     encoding/json.
 func DecorateWith(payload *spb.Struct, attr slog.Attr) {
@@ -122,6 +127,11 @@ type structValue struct {
 	kind  spb.Value_StructValue
 }
 
+type listValue struct {
+	value spb.Value
+	kind  spb.Value_ListValue
+}
+
 // NewStringValue creates the spb.Value equivalent of the supplied string.
 func NewStringValue(str string) *spb.Value {
 	v := &stringValue{kind: spb.Value_StringValue{StringValue: str}}
@@ -154,6 +164,14 @@ func NewStructValue(s *spb.Struct) *spb.Value {
 	return &v.value
 }
 
+// NewListValue creates the spb.Value that holds the supplied spb.ListValue.
+func NewListValue(l *spb.ListValue) *spb.Value {
+	v := &listValue{kind: spb.Value_ListValue{ListValue: l}}
+	v.value.Kind = &v.kind
+
+	return &v.value
+}
+
 // NewGroupValue creates the spb.Value equivalent of the supplied slog.Attr array.
 func NewGroupValue(g []slog.Attr) *spb.Value {
 	p := &spb.Struct{Fields: make(map[string]*spb.Value)}
@@ -164,9 +182,12 @@ func NewGroupValue(g []slog.Attr) *spb.Value {
 	return NewStructValue(p)
 }
 
-// NewAny creates the spb.Value equivalent of the supplied any instance.  If
-// encoding/json cannot encode the instance, or cannot decode the JSON of the
-// instance, NewAny returns the string "!ERROR:" followed by the error text.
+// NewAny creates the spb.Value equivalent of the supplied any instance.  The
+// result is the value that encoding/json gives for the instance.  A nil
+// instance is null.  An error that does not implement json.Marshaler is its
+// Error() string.  If encoding/json cannot encode the instance, or cannot
+// decode the JSON of the instance, NewAny returns the string "!ERROR:"
+// followed by the error text.
 func NewAny(a any) *spb.Value {
 	if a == nil {
 		return nilValue
@@ -179,18 +200,171 @@ func NewAny(a any) *spb.Value {
 		return NewStringValue(err.Error())
 	}
 
-	// The value can map directly to a spb.Value.
-	if nv, err := spb.NewValue(a); err == nil {
+	if nv, ok := newJSONValue(a); ok {
 		return nv
 	}
 
-	// Try to convert the value to a JSON object.
 	value, err := AsJSON(a)
 	if err != nil {
 		return NewStringValue(errorPrefix + err.Error())
 	}
 
 	return value
+}
+
+// newJSONValue returns the spb.Value that encoding/json gives for a, without
+// a JSON round trip.  newJSONValue handles the types that encoding/json
+// encodes without a json.Marshaler: nil, bool, string, the integer and float
+// types, []byte, map[string]any, and []any.  ok is false for another type,
+// for a float that is not finite, and for a string that is not valid UTF-8.
+// The caller then uses encoding/json.  jsonInteger handles the integer
+// types.
+func newJSONValue(a any) (*spb.Value, bool) {
+	switch v := a.(type) {
+	case nil:
+		return nilValue, true
+	case bool:
+		return NewBoolValue(v), true
+	case string:
+		return jsonString(v)
+	case float64:
+		return jsonFloat64(v)
+	case float32:
+		return jsonFloat32(v)
+	case []byte:
+		return jsonBytes(v)
+	case map[string]any:
+		return jsonStruct(v)
+	case []any:
+		return jsonList(v)
+	default:
+		return jsonInteger(a)
+	}
+}
+
+// jsonInteger returns the number value of a if a has an integer type.  ok is
+// false for another type.
+func jsonInteger(a any) (*spb.Value, bool) {
+	switch v := a.(type) {
+	case int:
+		return NewNumberValue(float64(v)), true
+	case int8:
+		return NewNumberValue(float64(v)), true
+	case int16:
+		return NewNumberValue(float64(v)), true
+	case int32:
+		return NewNumberValue(float64(v)), true
+	case int64:
+		return NewNumberValue(float64(v)), true
+	case uint:
+		return NewNumberValue(float64(v)), true
+	case uint8:
+		return NewNumberValue(float64(v)), true
+	case uint16:
+		return NewNumberValue(float64(v)), true
+	case uint32:
+		return NewNumberValue(float64(v)), true
+	case uint64:
+		return NewNumberValue(float64(v)), true
+	default:
+		return nil, false
+	}
+}
+
+// jsonString returns the string value of s.  ok is false if s is not valid
+// UTF-8, because encoding/json replaces the invalid bytes.
+func jsonString(s string) (*spb.Value, bool) {
+	if !utf8.ValidString(s) {
+		return nil, false
+	}
+
+	return NewStringValue(s), true
+}
+
+// jsonFloat64 returns the number value of f.  ok is false if f is not
+// finite, because encoding/json cannot encode NaN or an infinity.
+func jsonFloat64(f float64) (*spb.Value, bool) {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return nil, false
+	}
+
+	return NewNumberValue(f), true
+}
+
+// jsonFloat32 returns the number value that encoding/json gives for f: the
+// shortest decimal that reads back as f at 32 bits, read as a float64.
+func jsonFloat32(f float32) (*spb.Value, bool) {
+	f64 := float64(f)
+	if math.IsNaN(f64) || math.IsInf(f64, 0) {
+		return nil, false
+	}
+
+	text := strconv.FormatFloat(f64, 'g', -1, 32)
+	n, _ := strconv.ParseFloat(text, 64)
+
+	return NewNumberValue(n), true
+}
+
+// jsonBytes returns the value that encoding/json gives for b: null for a nil
+// slice, and the base64 text for another slice.
+func jsonBytes(b []byte) (*spb.Value, bool) {
+	if b == nil {
+		return nilValue, true
+	}
+
+	text := base64.StdEncoding.EncodeToString(b)
+
+	return NewStringValue(text), true
+}
+
+// jsonStruct returns the value that encoding/json gives for m: null for a
+// nil map, and a struct with the value of each member.  ok is false if a key
+// or a member is not one that newJSONValue handles.
+func jsonStruct(m map[string]any) (*spb.Value, bool) {
+	if m == nil {
+		return nilValue, true
+	}
+
+	s := &spb.Struct{Fields: make(map[string]*spb.Value, len(m))}
+
+	for k, v := range m {
+		if !utf8.ValidString(k) {
+			return nil, false
+		}
+
+		fv, ok := newJSONValue(v)
+		if !ok {
+			return nil, false
+		}
+
+		s.Fields[k] = fv
+	}
+
+	return NewStructValue(s), true
+}
+
+// jsonList returns the value that encoding/json gives for l: null for a nil
+// slice, and a list with the value of each element.  ok is false if an
+// element is not one that newJSONValue handles.
+func jsonList(l []any) (*spb.Value, bool) {
+	if l == nil {
+		return nilValue, true
+	}
+
+	values := make([]*spb.Value, len(l))
+
+	for i, v := range l {
+		fv, ok := newJSONValue(v)
+		if !ok {
+			return nil, false
+		}
+
+		values[i] = fv
+	}
+
+	list := &spb.ListValue{Values: values}
+
+	return NewListValue(list), true
 }
 
 // NewTimeValue creates the spb.Value equivalent of the supplied time.Time instance.
