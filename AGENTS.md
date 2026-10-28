@@ -61,22 +61,20 @@ short sentences, one instruction per sentence, active voice, approved
 vocabulary, no jargon or idioms. Use the `asd-ste100` skill to write or check
 comments against this standard — do not rely on general-purpose simplifying.
 
-## Code comments explain the code, never the change
+## Code comments explain the code, not the change
 
-A code comment documents *what* the code does and *how to use it* — purpose,
-parameters, return values, usage notes, or a bare fact/invariant. It must
-never record the reasoning behind a change, or note a provisional or future
-state.
+A code comment states what the code does, how to use it, and why it is the
+way it is when that is not obvious: an invariant, a constraint of a format or
+a dependency, a consequence the caller must know. Keep each reason to a
+sentence; it must stay true for a reader who never saw the change that
+introduced it.
 
-**Never record the reasoning behind a change.** A comment does not hold the
-chain of reasoning that led to an edit: alternatives considered, what the code
-did before, why this approach beat another. That belongs in the commit message
-or the pull request, not in the source.
-
-**Do explain a non-obvious purpose to the reader.** When a caller or
-maintainer would ask "why would I use this?" or "why is it like this?", one
-sentence that answers it is a fact about the code, not rationale. Keep it to
-that sentence; an essay is a sign it is change reasoning instead.
+**Anything that is only true relative to an earlier state of the code belongs
+in the commit message.** What the code did before, what was tried, which
+alternative lost, how the change was arrived at: none of it goes in the
+source. The test is time, not category. A reason that still holds for a
+reader who never saw the change is a comment; a reason that only makes sense
+next to the previous version is commit history.
 
 **Never note future or provisional state.** No "not implemented yet", "will be
 cleaned up later" — this warns no one outside the repo and just rots. If a
