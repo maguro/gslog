@@ -18,6 +18,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -26,7 +27,7 @@ import (
 // context and the options.  The record itself holds the message, the time,
 // the level, and the attributes of the log call.
 type Entry struct {
-	Labels       map[string]string
+	Labels       Labels
 	Trace        string
 	SpanID       string
 	TraceSampled bool
@@ -58,36 +59,97 @@ func Fill(ctx context.Context, record *slog.Record, addSource bool, augmentors [
 	return e
 }
 
+// Labels holds the labels of an entry.  Keys holds the keys of Map in sorted
+// order.  Several entries can share one Labels value, so do not change Map or
+// Keys after NewLabels returns them.
+type Labels struct {
+	Map  map[string]string
+	Keys []string
+}
+
+// NewLabels returns the labels with the map and its sorted keys.
+func NewLabels(m map[string]string) Labels {
+	if len(m) == 0 {
+		return Labels{}
+	}
+
+	keys := slices.Sorted(maps.Keys(m))
+
+	return Labels{Map: m, Keys: keys}
+}
+
+// Len returns the number of labels.
+func (l Labels) Len() int {
+	return len(l.Keys)
+}
+
+// Merge returns the labels of l and of other.  A label of other replaces a
+// label of l with the same key.  Merge returns l when other has no label, and
+// other when l has no label.
+func (l Labels) Merge(other Labels) Labels {
+	if other.Len() == 0 {
+		return l
+	}
+
+	if l.Len() == 0 {
+		return other
+	}
+
+	m := make(map[string]string, len(l.Map)+len(other.Map))
+	maps.Copy(m, l.Map)
+	maps.Copy(m, other.Map)
+
+	keys := mergeKeys(l.Keys, other.Keys)
+
+	return Labels{Map: m, Keys: keys}
+}
+
+// mergeKeys returns the keys of two sorted lists in one sorted list.  A key
+// that is in both lists is in the result once.
+func mergeKeys(a, b []string) []string {
+	keys := make([]string, 0, len(a)+len(b))
+
+	i, j := 0, 0
+	for i < len(a) && j < len(b) {
+		switch {
+		case a[i] < b[j]:
+			keys = append(keys, a[i])
+			i++
+		case a[i] > b[j]:
+			keys = append(keys, b[j])
+			j++
+		default:
+			keys = append(keys, a[i])
+			i++
+			j++
+		}
+	}
+
+	keys = append(keys, a[i:]...)
+
+	return append(keys, b[j:]...)
+}
+
 type labelsKey struct{}
 
-// WithLabels returns a new Context that stores the labels.  The map must not
-// change after the call.
-func WithLabels(ctx context.Context, labels map[string]string) context.Context {
+// WithLabels returns a new Context that stores the labels.
+func WithLabels(ctx context.Context, labels Labels) context.Context {
 	return context.WithValue(ctx, labelsKey{}, labels)
 }
 
 // LabelsFrom returns the labels stored in ctx by WithLabels.
-func LabelsFrom(ctx context.Context) map[string]string {
-	labels, _ := ctx.Value(labelsKey{}).(map[string]string)
+func LabelsFrom(ctx context.Context) Labels {
+	labels, _ := ctx.Value(labelsKey{}).(Labels)
 
 	return labels
 }
 
-// AddLabels adds the labels of ctx to the entry.  If the entry has no
-// labels, AddLabels gives the entry the map from ctx.
+// AddLabels adds the labels of ctx to the entry.  A label of ctx replaces a
+// label of the entry with the same key.
 func AddLabels(ctx context.Context, e *Entry) {
 	labels := LabelsFrom(ctx)
-	if len(labels) == 0 {
-		return
-	}
 
-	if e.Labels == nil {
-		e.Labels = labels
-
-		return
-	}
-
-	maps.Copy(e.Labels, labels)
+	e.Labels = e.Labels.Merge(labels)
 }
 
 // ValidUTF8 returns s when s is valid UTF-8.  Otherwise, ValidUTF8 returns a

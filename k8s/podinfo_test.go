@@ -52,7 +52,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 					a(ctx, e)
 				}
 
-				Ω(e.Labels).Should(MatchAllKeys(Keys{
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
 					k8s.PodPrefix + "app":         Equal("hello-world"),
 					k8s.PodPrefix + "environment": Equal("stg"),
 					k8s.PodPrefix + "tier":        Equal("backend"),
@@ -73,7 +73,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 					a(ctx, e)
 				}
 
-				Ω(e.Labels).Should(BeEmpty())
+				Ω(e.Labels.Map).Should(BeEmpty())
 			})
 	})
 
@@ -89,7 +89,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 					a(ctx, e)
 				}
 
-				Ω(e.Labels).Should(MatchAllKeys(Keys{
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
 					k8s.PodPrefix + "app":   Equal("hello-world"),
 					k8s.PodPrefix + "empty": Equal(""),
 				}))
@@ -108,7 +108,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 					a(ctx, e)
 				}
 
-				Ω(e.Labels).Should(BeEmpty())
+				Ω(e.Labels.Map).Should(BeEmpty())
 			})
 	})
 
@@ -129,7 +129,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 				}
 
 				Ω(o.EntryAugmentors).Should(HaveLen(1))
-				Ω(e.Labels).Should(MatchAllKeys(Keys{
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
 					k8s.PodPrefix + "app":   Equal("hello-world"),
 					k8s.PodPrefix + "empty": Equal(""),
 				}))

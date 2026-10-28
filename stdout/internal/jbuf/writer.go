@@ -17,8 +17,6 @@ package jbuf
 import (
 	"encoding/json"
 	"log/slog"
-	"maps"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -210,7 +208,7 @@ func (w *Writer) AppendTimestamp(t time.Time) {
 }
 
 // AppendLabels appends the labels with the key that the agent reads.
-func (w *Writer) AppendLabels(labels map[string]string) {
+func (w *Writer) AppendLabels(labels entry.Labels) {
 	w.key(agentLabelsKey)
 	w.buf = appendLabels(w.buf, labels)
 }
@@ -387,17 +385,18 @@ func JoinMembers(a, b []byte) []byte {
 	return append(joined, b...)
 }
 
-// appendLabels appends the labels as a JSON object with sorted keys.
-func appendLabels(buf []byte, labels map[string]string) []byte {
+// appendLabels appends the labels as a JSON object in the order of the sorted
+// keys.
+func appendLabels(buf []byte, labels entry.Labels) []byte {
 	buf = append(buf, '{')
 
-	for i, key := range slices.Sorted(maps.Keys(labels)) {
+	for i, key := range labels.Keys {
 		if i > 0 {
 			buf = append(buf, ',')
 		}
 
 		buf = appendKey(buf, key)
-		buf = appendString(buf, labels[key])
+		buf = appendString(buf, labels.Map[key])
 	}
 
 	return append(buf, '}')

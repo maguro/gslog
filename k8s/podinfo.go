@@ -22,7 +22,6 @@ package k8s
 import (
 	"context"
 	"log/slog"
-	"maps"
 	"os"
 	"path/filepath"
 
@@ -70,14 +69,11 @@ func podinfoAugmentor(root string) entry.Augmentor {
 		return func(_ context.Context, _ *entry.Entry) {}
 	}
 
-	labels := podLabels(props)
+	loaded := podLabels(props)
+	labels := entry.NewLabels(loaded)
 
 	return func(_ context.Context, e *entry.Entry) {
-		if e.Labels == nil {
-			e.Labels = make(map[string]string, len(labels))
-		}
-
-		maps.Copy(e.Labels, labels)
+		e.Labels = e.Labels.Merge(labels)
 	}
 }
 

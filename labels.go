@@ -63,7 +63,7 @@ func (lp LabelPair) LogValue() slog.Value {
 // WithLabels replaces a byte that is not valid UTF-8 in a key or a value with
 // U+FFFD.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
-	parent := entry.LabelsFrom(ctx)
+	parent := entry.LabelsFrom(ctx).Map
 	labels := make(map[string]string, len(parent)+len(labelPairs))
 
 	maps.Copy(labels, parent)
@@ -85,7 +85,9 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 		labels[key] = entry.ValidUTF8(labelPair.val)
 	}
 
-	return entry.WithLabels(ctx, labels)
+	stored := entry.NewLabels(labels)
+
+	return entry.WithLabels(ctx, stored)
 }
 
 // LabelsFrom returns the labels that WithLabels stored in ctx.  The
@@ -93,5 +95,5 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 func LabelsFrom(ctx context.Context) map[string]string {
 	labels := entry.LabelsFrom(ctx)
 
-	return maps.Clone(labels)
+	return maps.Clone(labels.Map)
 }

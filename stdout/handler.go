@@ -211,7 +211,7 @@ func (h *Handler) appendHeader(w *jbuf.Writer, e *entry.Entry, record *slog.Reco
 		w.AppendTimestamp(record.Time)
 	}
 
-	if len(e.Labels) > 0 {
+	if e.Labels.Len() > 0 {
 		w.AppendLabels(e.Labels)
 	}
 

@@ -273,7 +273,7 @@ func toLogEntry(e *entry.Entry, record *slog.Record, payload *spb.Struct) loggin
 	logEntry := logging.Entry{
 		Timestamp:    record.Time.UTC(),
 		Severity:     logging.Severity(level.ToSeverity(record.Level)),
-		Labels:       e.Labels,
+		Labels:       e.Labels.Map,
 		Trace:        e.Trace,
 		SpanID:       e.SpanID,
 		TraceSampled: e.TraceSampled,

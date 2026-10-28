@@ -34,12 +34,13 @@ func TestFill(t *testing.T) {
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "message", pc)
 
 	labels := map[string]string{"ctx": "c"}
-	ctx := entry.WithLabels(context.Background(), labels)
+	stored := entry.NewLabels(labels)
+	ctx := entry.WithLabels(context.Background(), stored)
 
 	augmentors := []entry.Augmentor{
 		func(_ context.Context, e *entry.Entry) {
 			e.Trace = "first"
-			e.Labels = map[string]string{"augmentor": "a"}
+			e.Labels = entry.NewLabels(map[string]string{"augmentor": "a"})
 		},
 		func(_ context.Context, e *entry.Entry) {
 			e.Trace = "second"
@@ -51,7 +52,8 @@ func TestFill(t *testing.T) {
 	require.NotNil(t, e.Source)
 	assert.Contains(t, e.Source.Function, "TestFill")
 	assert.Equal(t, "second", e.Trace)
-	assert.Equal(t, map[string]string{"augmentor": "a", "ctx": "c"}, e.Labels)
+	assert.Equal(t, map[string]string{"augmentor": "a", "ctx": "c"}, e.Labels.Map)
+	assert.Equal(t, []string{"augmentor", "ctx"}, e.Labels.Keys)
 	assert.Equal(t, map[string]string{"ctx": "c"}, labels)
 }
 
@@ -61,23 +63,61 @@ func TestFill_noSource(t *testing.T) {
 	e := entry.Fill(context.Background(), &record, false, nil)
 
 	assert.Nil(t, e.Source)
-	assert.Nil(t, e.Labels)
+	assert.Zero(t, e.Labels.Len())
 }
 
 func TestAddLabels(t *testing.T) {
 	labels := map[string]string{"ctx": "c"}
-	ctx := entry.WithLabels(context.Background(), labels)
+	stored := entry.NewLabels(labels)
+	ctx := entry.WithLabels(context.Background(), stored)
 
 	var e entry.Entry
 
 	entry.AddLabels(ctx, &e)
 
-	assert.Equal(t, labels, e.Labels)
-	assert.Equal(t, labels, entry.LabelsFrom(ctx))
+	assert.Equal(t, labels, e.Labels.Map)
+	assert.Equal(t, labels, entry.LabelsFrom(ctx).Map)
 }
 
 func TestLabelsFrom_noLabels(t *testing.T) {
-	assert.Nil(t, entry.LabelsFrom(context.Background()))
+	assert.Zero(t, entry.LabelsFrom(context.Background()))
+}
+
+func TestNewLabels(t *testing.T) {
+	labels := entry.NewLabels(map[string]string{"b": "2", "a": "1", "c": "3"})
+
+	assert.Equal(t, 3, labels.Len())
+	assert.Equal(t, []string{"a", "b", "c"}, labels.Keys)
+
+	assert.Zero(t, entry.NewLabels(nil))
+	assert.Zero(t, entry.NewLabels(map[string]string{}))
+}
+
+func TestLabels_Merge(t *testing.T) {
+	first := entry.NewLabels(map[string]string{"a": "1", "b": "first"})
+	second := entry.NewLabels(map[string]string{"b": "second", "c": "3"})
+
+	tests := map[string]struct {
+		l, other entry.Labels
+		wantMap  map[string]string
+		wantKeys []string
+	}{
+		"both":        {first, second, map[string]string{"a": "1", "b": "second", "c": "3"}, []string{"a", "b", "c"}},
+		"other empty": {first, entry.Labels{}, first.Map, first.Keys},
+		"l empty":     {entry.Labels{}, second, second.Map, second.Keys},
+		"both empty":  {entry.Labels{}, entry.Labels{}, nil, nil},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := tc.l.Merge(tc.other)
+
+			assert.Equal(t, tc.wantMap, got.Map)
+			assert.Equal(t, tc.wantKeys, got.Keys)
+		})
+	}
+
+	assert.Equal(t, map[string]string{"a": "1", "b": "first"}, first.Map, "Merge must not change its receiver")
 }
 
 func TestValidUTF8(t *testing.T) {
