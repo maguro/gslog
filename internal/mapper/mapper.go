@@ -22,8 +22,12 @@ import (
 	"m4o.io/gslog"
 )
 
-// Wrap wraps a mapper with checks for empty groups.  The wrapper elides an
-// empty group.
+// Wrap returns the mapper that a handler calls for each attribute.  The
+// wrapper resolves the value of the attribute.  For an attribute that is not
+// a group, the wrapper calls mapper.  For a group, the wrapper calls itself
+// for each member, discards a member that maps to the zero Attr, and
+// discards the group when no member remains.  Wrap returns nil for a nil
+// mapper.
 func Wrap(mapper gslog.AttrMapper) gslog.AttrMapper {
 	if mapper == nil {
 		return nil
