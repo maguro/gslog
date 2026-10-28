@@ -22,7 +22,6 @@ import (
 	"m4o.io/gslog/internal/attr"
 )
 
-//nolint:gochecknoglobals
 var sink *structpb.Value
 
 func BenchmarkNewStringValue(b *testing.B) {

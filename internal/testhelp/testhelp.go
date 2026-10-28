@@ -26,8 +26,6 @@ import (
 )
 
 // Time is the fixed time of the test records.
-//
-//nolint:gochecknoglobals
 var Time = time.Date(2000, 1, 2, 3, 4, 5, 0, time.UTC)
 
 // CallerPC returns the program counter at the given stack depth.  Depth 1 is

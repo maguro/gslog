@@ -60,7 +60,6 @@ func TestCombinedValueEquivalence(t *testing.T) {
 func TestCombinedValueCloneIsIndependent(t *testing.T) {
 	orig := attr.NewStringValue("before")
 
-	//nolint:forcetypeassert
 	cl := proto.Clone(orig).(*structpb.Value)
 	require.True(t, proto.Equal(orig, cl))
 

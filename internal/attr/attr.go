@@ -31,7 +31,6 @@ import (
 // encoding/json error.  log/slog uses the same text.
 const errorPrefix = "!ERROR:"
 
-//nolint:gochecknoglobals
 var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NULL_VALUE}}
 
 // DecorateWith adds the attribute to the Fields of the spb.Struct.
@@ -67,8 +66,6 @@ func DecorateWith(payload *spb.Struct, attr slog.Attr) {
 }
 
 // ValToStruct creates the spb.Value equivalent of the supplied slog.Value value.
-//
-//nolint:cyclop
 func ValToStruct(v slog.Value) (*spb.Value, bool) {
 	switch v.Kind() {
 	case slog.KindString:
