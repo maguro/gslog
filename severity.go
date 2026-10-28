@@ -14,20 +14,19 @@
 
 package gslog
 
-import "m4o.io/gslog/internal/level"
+import "log/slog"
 
-// The levels that Cloud Logging has and slog does not.
+// The levels that Cloud Logging has and slog does not.  The internal level
+// package holds the same values.
 const (
-	// LevelNotice is slog.Level 2.  It means normal but significant events,
-	// such as start up, shut down, or configuration.
-	LevelNotice = level.LevelNotice
-	// LevelCritical is slog.Level 12.  It means events that cause more
-	// severe problems or brief outages.
-	LevelCritical = level.LevelCritical
-	// LevelAlert is slog.Level 16.  It means a person must take an action
-	// immediately.
-	LevelAlert = level.LevelAlert
-	// LevelEmergency is slog.Level 20.  It means one or more systems are
-	// unusable.
-	LevelEmergency = level.LevelEmergency
+	// LevelNotice means normal but significant events, such as start up,
+	// shut down, or configuration.
+	LevelNotice = slog.Level(2)
+	// LevelCritical means events that cause more severe problems or brief
+	// outages.
+	LevelCritical = slog.Level(12)
+	// LevelAlert means a person must take an action immediately.
+	LevelAlert = slog.Level(16)
+	// LevelEmergency means one or more systems are unusable.
+	LevelEmergency = slog.Level(20)
 )
