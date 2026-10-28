@@ -37,10 +37,13 @@ import (
 // Handler is a slog.Handler that writes to Google Cloud Logging through
 // the API client.
 //
-// The handler writes the message of the log call at the key "message".  The
-// handler writes the error report of a record at the keys that Error
-// Reporting reads.  The handler replaces a top-level attribute or group that
-// has one of these keys.
+// The handler writes the message of the log call at the key "message".
+//
+// The errorreporting.WithService option causes the handler to write the
+// fields "@type", "serviceContext", and "stack_trace".  In a record that has
+// these fields, the handler discards a top-level attribute or group that has
+// one of these three keys.  In a record that does not have these fields, the
+// handler writes the attribute or group.
 //
 // For an attribute value that encoding/json cannot encode, the handler
 // writes the string "!ERROR:" followed by the error text.

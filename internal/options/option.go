@@ -40,8 +40,8 @@ type Options struct {
 	ErrorReporter *entry.Reporter
 
 	// AddSource causes the handler to compute the source code position
-	// of the log statement.  The handler sets the position in the
-	// SourceLocation field of the entry.
+	// of the log statement.  The handler writes the position as the source
+	// location of the entry.
 	AddSource bool
 
 	// Level reports the minimum record level that the handler logs.

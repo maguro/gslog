@@ -86,8 +86,9 @@ func WithDefaultLeveler(defaultLeveler slog.Leveler) Option {
 }
 
 // WithSourceAdded returns an option that causes the handler to compute the
-// source code position of the log statement.  The handler sets the position
-// in the SourceLocation field of the entry.
+// source code position of the log statement.  The gcp handler sets the
+// SourceLocation field of the logging.Entry.  The stdout handler writes the
+// field "logging.googleapis.com/sourceLocation".
 func WithSourceAdded() Option {
 	return func(o *options.Options) {
 		o.AddSource = true
