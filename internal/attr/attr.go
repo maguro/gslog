@@ -24,10 +24,10 @@ import (
 	"math"
 	"strconv"
 	"time"
-	"unicode/utf8"
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
+	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/timefmt"
 )
 
@@ -66,7 +66,7 @@ func DecorateWith(payload *spb.Struct, attr slog.Attr) {
 			payload.Fields[k] = v
 		}
 	} else {
-		payload.Fields[attr.Key] = val
+		payload.Fields[entry.ValidUTF8(attr.Key)] = val
 	}
 }
 
@@ -133,7 +133,10 @@ type listValue struct {
 }
 
 // NewStringValue creates the spb.Value equivalent of the supplied string.
+// NewStringValue replaces a byte that is not valid UTF-8 with U+FFFD, because
+// a protobuf string must be valid UTF-8.
 func NewStringValue(str string) *spb.Value {
+	str = entry.ValidUTF8(str)
 	v := &stringValue{kind: spb.Value_StringValue{StringValue: str}}
 	v.value.Kind = &v.kind
 
@@ -215,10 +218,9 @@ func NewAny(a any) *spb.Value {
 // newJSONValue returns the spb.Value that encoding/json gives for a, without
 // a JSON round trip.  newJSONValue handles the types that encoding/json
 // encodes without a json.Marshaler: nil, bool, string, the integer and float
-// types, []byte, map[string]any, and []any.  ok is false for another type,
-// for a float that is not finite, and for a string that is not valid UTF-8.
-// The caller then uses encoding/json.  jsonInteger handles the integer
-// types.
+// types, []byte, map[string]any, and []any.  ok is false for another type
+// and for a float that is not finite.  The caller then uses encoding/json.
+// jsonInteger handles the integer types.
 func newJSONValue(a any) (*spb.Value, bool) {
 	switch v := a.(type) {
 	case nil:
@@ -226,7 +228,7 @@ func newJSONValue(a any) (*spb.Value, bool) {
 	case bool:
 		return NewBoolValue(v), true
 	case string:
-		return jsonString(v)
+		return NewStringValue(v), true
 	case float64:
 		return jsonFloat64(v)
 	case float32:
@@ -271,16 +273,6 @@ func jsonInteger(a any) (*spb.Value, bool) {
 	}
 }
 
-// jsonString returns the string value of s.  ok is false if s is not valid
-// UTF-8, because encoding/json replaces the invalid bytes.
-func jsonString(s string) (*spb.Value, bool) {
-	if !utf8.ValidString(s) {
-		return nil, false
-	}
-
-	return NewStringValue(s), true
-}
-
 // jsonFloat64 returns the number value of f.  ok is false if f is not
 // finite, because encoding/json cannot encode NaN or an infinity.
 func jsonFloat64(f float64) (*spb.Value, bool) {
@@ -318,8 +310,8 @@ func jsonBytes(b []byte) (*spb.Value, bool) {
 }
 
 // jsonStruct returns the value that encoding/json gives for m: null for a
-// nil map, and a struct with the value of each member.  ok is false if a key
-// or a member is not one that newJSONValue handles.
+// nil map, and a struct with the value of each member.  ok is false if a
+// member is not one that newJSONValue handles.
 func jsonStruct(m map[string]any) (*spb.Value, bool) {
 	if m == nil {
 		return nilValue, true
@@ -328,16 +320,12 @@ func jsonStruct(m map[string]any) (*spb.Value, bool) {
 	s := &spb.Struct{Fields: make(map[string]*spb.Value, len(m))}
 
 	for k, v := range m {
-		if !utf8.ValidString(k) {
-			return nil, false
-		}
-
 		fv, ok := newJSONValue(v)
 		if !ok {
 			return nil, false
 		}
 
-		s.Fields[k] = fv
+		s.Fields[entry.ValidUTF8(k)] = fv
 	}
 
 	return NewStructValue(s), true

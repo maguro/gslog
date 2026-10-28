@@ -176,6 +176,7 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 		return h
 	}
 
+	name = entry.ValidUTF8(name)
 	handler2 := h.clone()
 
 	payload, current := copyPath(h.payload, h.groups)

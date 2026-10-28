@@ -18,6 +18,8 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"strings"
+	"unicode/utf8"
 )
 
 // Entry holds the information for one log record that comes from the
@@ -86,4 +88,30 @@ func AddLabels(ctx context.Context, e *Entry) {
 	}
 
 	maps.Copy(e.Labels, labels)
+}
+
+// ValidUTF8 returns s when s is valid UTF-8.  Otherwise, ValidUTF8 returns a
+// copy of s in which each byte that is not valid UTF-8 is the replacement
+// character U+FFFD.  encoding/json makes the same replacement.
+func ValidUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+
+	var b strings.Builder
+
+	b.Grow(len(s))
+
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && size == 1 {
+			b.WriteRune(utf8.RuneError)
+		} else {
+			b.WriteString(s[i : i+size])
+		}
+
+		i += size
+	}
+
+	return b.String()
 }

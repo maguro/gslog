@@ -79,3 +79,23 @@ func TestAddLabels(t *testing.T) {
 func TestLabelsFrom_noLabels(t *testing.T) {
 	assert.Nil(t, entry.LabelsFrom(context.Background()))
 }
+
+func TestValidUTF8(t *testing.T) {
+	tests := map[string]struct {
+		s    string
+		want string
+	}{
+		"ASCII":              {"plain", "plain"},
+		"multibyte":          {"日本 é", "日本 é"},
+		"empty":              {"", ""},
+		"one invalid byte":   {"a\xffb", "a�b"},
+		"two invalid bytes":  {"a\xff\xfeb", "a��b"},
+		"truncated sequence": {"\xe6\x97", "��"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, entry.ValidUTF8(tc.s))
+		})
+	}
+}

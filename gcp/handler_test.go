@@ -32,6 +32,7 @@ import (
 	"cloud.google.com/go/logging"
 	logpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/baggage"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -1303,6 +1304,30 @@ func TestHandle_logSyncError(t *testing.T) {
 
 	err := h.Handle(context.Background(), record)
 	assert.ErrorIs(t, err, cause)
+}
+
+// TestHandle_invalidUTF8 verifies that the payload is a valid protobuf
+// message when a key or a string has bytes that are not valid UTF-8.
+func TestHandle_invalidUTF8(t *testing.T) {
+	got := &Got{}
+	h := gcp.NewHandler(got)
+	l := slog.New(h).WithGroup("g\xff").With("k\xfe", "v\xfd")
+
+	l.Info("m\xff", "a\xfe", "b\xfd")
+
+	payload, ok := got.LogEntry.Payload.(*structpb.Struct)
+	require.True(t, ok)
+
+	_, err := proto.Marshal(payload)
+	require.NoError(t, err)
+
+	fields := payload.AsMap()
+	assert.Equal(t, "m�", fields["message"])
+
+	group, ok := fields["g�"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "v�", group["k�"])
+	assert.Equal(t, "b�", group["a�"])
 }
 
 // removeKeys returns a function for HandlerOptions.Mapper.  The function

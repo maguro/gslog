@@ -59,6 +59,9 @@ func (lp LabelPair) LogValue() slog.Value {
 // A context holds at most 64 labels.  When the context already has 64
 // labels, WithLabels drops a label with a new key and logs an error with the
 // default slog.Logger.
+//
+// WithLabels replaces a byte that is not valid UTF-8 in a key or a value with
+// U+FFFD.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	parent := entry.LabelsFrom(ctx)
 	labels := make(map[string]string, len(parent)+len(labelPairs))
@@ -70,14 +73,16 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 			panic("invalid label passed to WithLabels()")
 		}
 
-		_, replaces := labels[labelPair.key]
+		key := entry.ValidUTF8(labelPair.key)
+
+		_, replaces := labels[key]
 		if !replaces && len(labels) >= maxLabels {
 			slog.Error("Too many labels", "ignored", labelPair)
 
 			continue
 		}
 
-		labels[labelPair.key] = labelPair.val
+		labels[key] = entry.ValidUTF8(labelPair.val)
 	}
 
 	return entry.WithLabels(ctx, labels)

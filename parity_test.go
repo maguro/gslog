@@ -62,6 +62,7 @@ func TestValueParity(t *testing.T) {
 		want any
 	}{
 		"string":      {slog.String("v", "hello"), "hello"},
+		"bad UTF-8":   {slog.String("v", "a\xff\xfeb"), "a��b"},
 		"int":         {slog.Int("v", -3), -3.0},
 		"max int64":   {slog.Int64("v", math.MaxInt64), float64(math.MaxInt64)},
 		"max uint64":  {slog.Uint64("v", math.MaxUint64), float64(math.MaxUint64)},

@@ -45,6 +45,18 @@ var _ = Describe("labels", func() {
 		})
 	})
 
+	When("a label has bytes that are not valid UTF-8", func() {
+		BeforeEach(func() {
+			ctx = gslog.WithLabels(ctx, gslog.Label("k\xff", "v\xfe"))
+		})
+
+		It("the bytes are replaced", func() {
+			labels := gslog.LabelsFrom(ctx)
+
+			Ω(labels).Should(HaveKeyWithValue("k�", "v�"))
+		})
+	})
+
 	When("context is initialized with several labels", func() {
 		BeforeEach(func() {
 			ctx = gslog.WithLabels(ctx,
