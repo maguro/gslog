@@ -39,11 +39,11 @@ func TestFill(t *testing.T) {
 
 	augmentors := []entry.Augmentor{
 		func(_ context.Context, e *entry.Entry) {
-			e.Trace = "first"
+			e.TracePrefix = "first"
 			e.Labels = entry.NewLabels(map[string]string{"augmentor": "a"})
 		},
 		func(_ context.Context, e *entry.Entry) {
-			e.Trace = "second"
+			e.TracePrefix = "second"
 		},
 	}
 
@@ -53,7 +53,7 @@ func TestFill(t *testing.T) {
 
 	require.NotNil(t, e.Source)
 	assert.Contains(t, e.Source.Function, "TestFill")
-	assert.Equal(t, "second", e.Trace)
+	assert.Equal(t, "second", e.TracePrefix)
 	assert.Equal(t, map[string]string{"augmentor": "a", "ctx": "c"}, e.Labels.Map)
 	assert.Equal(t, []string{"augmentor", "ctx"}, e.Labels.Keys)
 	assert.Equal(t, map[string]string{"ctx": "c"}, labels)
@@ -72,7 +72,7 @@ func TestFill_noSource(t *testing.T) {
 
 func TestRelease(t *testing.T) {
 	e := entry.Alloc()
-	e.Trace = "trace"
+	e.TracePrefix = "trace"
 	e.Attrs = append(e.Attrs, slog.String("a", "1"))
 
 	entry.Release(e)
@@ -80,8 +80,24 @@ func TestRelease(t *testing.T) {
 	e = entry.Alloc()
 	defer entry.Release(e)
 
-	assert.Zero(t, e.Trace)
+	assert.Zero(t, e.TracePrefix)
 	assert.Empty(t, e.Attrs)
+}
+
+func TestEntry_Trace(t *testing.T) {
+	e := entry.Entry{
+		TracePrefix: "projects/my-project/traces/",
+		TraceID:     [16]byte{0x4b, 0xf9, 0x2f, 0x35, 0x77, 0xb3, 0x4d, 0xa6, 0xa3, 0xce, 0x92, 0x9d, 0x0e, 0x0e, 0x47, 0x36},
+		SpanID:      [8]byte{0x00, 0xf0, 0x67, 0xaa, 0x0b, 0xa9, 0x02, 0xb7},
+	}
+
+	assert.Equal(t, "projects/my-project/traces/4bf92f3577b34da6a3ce929d0e0e4736", e.Trace())
+	assert.Equal(t, "00f067aa0ba902b7", e.SpanIDString())
+
+	var none entry.Entry
+
+	assert.Empty(t, none.Trace())
+	assert.Empty(t, none.SpanIDString())
 }
 
 func TestAddLabels(t *testing.T) {

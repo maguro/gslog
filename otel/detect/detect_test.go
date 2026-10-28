@@ -109,8 +109,8 @@ func TestWithTracing_detectedProjectID(t *testing.T) {
 
 	e := traceOf(t, withTracing(source))
 
-	assert.Equal(t, "projects/detected/traces/52fc1643a9381fc674742bb0067101e7", e.Trace)
-	assert.Equal(t, "d3e9e8c51cb190df", e.SpanID)
+	assert.Equal(t, "projects/detected/traces/52fc1643a9381fc674742bb0067101e7", e.Trace())
+	assert.Equal(t, "d3e9e8c51cb190df", e.SpanIDString())
 	assert.True(t, e.TraceSampled)
 }
 
@@ -119,8 +119,8 @@ func TestWithTracing_noProjectID(t *testing.T) {
 
 	e := traceOf(t, withTracing(source))
 
-	assert.Empty(t, e.Trace)
-	assert.Empty(t, e.SpanID)
+	assert.Empty(t, e.Trace())
+	assert.Empty(t, e.SpanIDString())
 	assert.False(t, e.TraceSampled)
 }
 
@@ -144,5 +144,5 @@ func TestWithTracing_metadataServer(t *testing.T) {
 
 	e := traceOf(t, WithTracing())
 
-	assert.Equal(t, "projects/from-server/traces/52fc1643a9381fc674742bb0067101e7", e.Trace)
+	assert.Equal(t, "projects/from-server/traces/52fc1643a9381fc674742bb0067101e7", e.Trace())
 }

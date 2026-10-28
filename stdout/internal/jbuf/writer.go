@@ -16,6 +16,7 @@ package jbuf
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"strconv"
@@ -214,16 +215,23 @@ func (w *Writer) AppendLabels(labels entry.Labels) {
 	w.buf = appendLabels(w.buf, labels)
 }
 
-// AppendTrace appends the trace with the key that the agent reads.
-func (w *Writer) AppendTrace(trace string) {
+// AppendTrace appends the trace name with the key that the agent reads.  The
+// name is prefix followed by the hex form of id.
+func (w *Writer) AppendTrace(prefix string, id [16]byte) {
 	w.key(agentTraceKey)
-	w.buf = appendString(w.buf, trace)
+	w.buf = append(w.buf, '"')
+	w.buf = appendEscaped(w.buf, prefix)
+	w.buf = hex.AppendEncode(w.buf, id[:])
+	w.buf = append(w.buf, '"')
 }
 
-// AppendSpanID appends the span ID with the key that the agent reads.
-func (w *Writer) AppendSpanID(spanID string) {
+// AppendSpanID appends the hex form of the span ID with the key that the
+// agent reads.
+func (w *Writer) AppendSpanID(id [8]byte) {
 	w.key(agentSpanIDKey)
-	w.buf = appendString(w.buf, spanID)
+	w.buf = append(w.buf, '"')
+	w.buf = hex.AppendEncode(w.buf, id[:])
+	w.buf = append(w.buf, '"')
 }
 
 // AppendTraceSampled appends the value true with the key that the agent

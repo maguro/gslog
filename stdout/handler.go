@@ -224,11 +224,11 @@ func (h *Handler) appendHeader(w *jbuf.Writer, e *entry.Entry, record *slog.Reco
 		w.AppendLabels(e.Labels)
 	}
 
-	if e.Trace != "" {
-		w.AppendTrace(e.Trace)
+	if e.TracePrefix != "" {
+		w.AppendTrace(e.TracePrefix, e.TraceID)
 	}
 
-	if e.SpanID != "" {
+	if e.SpanID != ([8]byte{}) {
 		w.AppendSpanID(e.SpanID)
 	}
 

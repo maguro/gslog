@@ -24,6 +24,15 @@ import (
 // Unicode replacement character.
 func appendString(buf []byte, s string) []byte {
 	buf = append(buf, '"')
+	buf = appendEscaped(buf, s)
+
+	return append(buf, '"')
+}
+
+// appendEscaped appends the content of s as the content of a JSON string,
+// without the quotes.  Invalid UTF-8 bytes become the Unicode replacement
+// character.
+func appendEscaped(buf []byte, s string) []byte {
 	start := 0
 
 	for i := 0; i < len(s); {
@@ -55,9 +64,7 @@ func appendString(buf []byte, s string) []byte {
 		i += size
 	}
 
-	buf = append(buf, s[start:]...)
-
-	return append(buf, '"')
+	return append(buf, s[start:]...)
 }
 
 // appendEscape appends the JSON escape sequence for the byte b.

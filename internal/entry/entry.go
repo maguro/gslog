@@ -16,6 +16,7 @@ package entry
 
 import (
 	"context"
+	"encoding/hex"
 	"log/slog"
 	"maps"
 	"slices"
@@ -28,15 +29,52 @@ import (
 // context and the options.  The record itself holds the message, the time,
 // the level, and the attributes of the log call.
 type Entry struct {
-	Labels       Labels
-	Trace        string
-	SpanID       string
+	Labels Labels
+
+	// TracePrefix, TraceID, and SpanID describe the span of the record.  An
+	// entry has a trace when TracePrefix is not empty, and a span when SpanID
+	// is not zero.
+	TracePrefix  string
+	TraceID      [16]byte
+	SpanID       [8]byte
 	TraceSampled bool
-	Source       *slog.Source
+
+	Source *slog.Source
 
 	// Attrs holds the attributes that the augmentors add.  A handler writes
 	// them after the attributes of the log call.
 	Attrs []slog.Attr
+}
+
+// Trace returns the trace name of the entry: TracePrefix followed by the hex
+// form of TraceID.  Trace returns an empty string when the entry has no
+// trace.
+func (e *Entry) Trace() string {
+	if e.TracePrefix == "" {
+		return ""
+	}
+
+	var hexID [2 * len(e.TraceID)]byte
+
+	hex.Encode(hexID[:], e.TraceID[:])
+
+	var b strings.Builder
+
+	b.Grow(len(e.TracePrefix) + len(hexID))
+	b.WriteString(e.TracePrefix)
+	b.Write(hexID[:])
+
+	return b.String()
+}
+
+// SpanIDString returns the hex form of SpanID.  SpanIDString returns an empty
+// string when the entry has no span.
+func (e *Entry) SpanIDString() string {
+	if e.SpanID == ([8]byte{}) {
+		return ""
+	}
+
+	return hex.EncodeToString(e.SpanID[:])
 }
 
 // Augmentor sets fields of an entry from the context.

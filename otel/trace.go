@@ -16,8 +16,6 @@ package otel
 
 import (
 	"context"
-	"encoding/hex"
-	"strings"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -49,11 +47,12 @@ func WithTracing(projectID string) gslog.Option {
 				spanContext := trace.SpanContextFromContext(ctx)
 
 				if spanContext.HasTraceID() {
-					e.Trace = traceName(tracePrefix, spanContext.TraceID())
+					e.TracePrefix = tracePrefix
+					e.TraceID = spanContext.TraceID()
 				}
 
 				if spanContext.HasSpanID() {
-					e.SpanID = spanContext.SpanID().String()
+					e.SpanID = spanContext.SpanID()
 				}
 
 				if spanContext.IsSampled() {
@@ -61,19 +60,4 @@ func WithTracing(projectID string) gslog.Option {
 				}
 			})
 	}
-}
-
-// traceName returns the prefix followed by the hex form of the trace ID.
-func traceName(prefix string, traceID trace.TraceID) string {
-	var hexID [2 * len(traceID)]byte
-
-	hex.Encode(hexID[:], traceID[:])
-
-	var b strings.Builder
-
-	b.Grow(len(prefix) + len(hexID))
-	b.WriteString(prefix)
-	b.Write(hexID[:])
-
-	return b.String()
 }
