@@ -66,6 +66,12 @@ func TestLoggerFunc_LogSync(t *testing.T) {
 	assert.True(t, called)
 }
 
+func TestLoggerFunc_Flush(t *testing.T) {
+	l := gcp.LoggerFunc(func(_ logging.Entry) {})
+
+	assert.NoError(t, l.Flush())
+}
+
 func TestDiscard_Log(t *testing.T) {
 	l := Discard
 	l.Log(logging.Entry{})

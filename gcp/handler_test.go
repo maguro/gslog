@@ -1296,6 +1296,35 @@ func (f *failingLogger) LogSync(_ context.Context, _ logging.Entry) error {
 	return f.err
 }
 
+func (f *failingLogger) Flush() error {
+	return f.err
+}
+
+func TestNewHandler_nilLogger(t *testing.T) {
+	assert.Panics(t, func() {
+		gcp.NewHandler(nil)
+	})
+}
+
+func TestWithLeveler_nil(t *testing.T) {
+	h := gcp.NewHandler(&Got{})
+
+	assert.Panics(t, func() {
+		h.WithLeveler(nil)
+	})
+}
+
+func TestHandler_Flush(t *testing.T) {
+	h := gcp.NewHandler(&Got{})
+
+	assert.NoError(t, h.Flush())
+
+	cause := errors.New("ouch")
+	failing := gcp.NewHandler(&failingLogger{err: cause})
+
+	assert.ErrorIs(t, failing.Flush(), cause)
+}
+
 func TestHandle_logSyncError(t *testing.T) {
 	cause := errors.New("ouch")
 	h := gcp.NewHandler(&failingLogger{err: cause})

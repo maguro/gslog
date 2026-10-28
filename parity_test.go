@@ -55,6 +55,8 @@ func (chimera) Error() string {
 // handler and the payload of the gcp handler to Go values, and compares both
 // with the expected value.
 func TestValueParity(t *testing.T) {
+	const nanError = "!ERROR:json: unsupported value: NaN"
+
 	ts := time.Date(2000, 1, 2, 3, 4, 5, 123456789, time.FixedZone("CET", 3600))
 
 	tests := map[string]struct {
@@ -93,12 +95,29 @@ func TestValueParity(t *testing.T) {
 		"nil slice in a map":     {slog.Any("v", map[string]any{"a": []any(nil)}), map[string]any{"a": nil}},
 		"nil map in a slice":     {slog.Any("v", []any{map[string]any(nil)}), []any{nil}},
 		"float32 in a map":       {slog.Any("v", map[string]any{"f": float32(0.1)}), map[string]any{"f": 0.1}},
-		"bytes":                  {slog.Any("v", []byte{1, 2, 3}), "AQID"},
-		"nil bytes":              {slog.Any("v", []byte(nil)), nil},
-		"raw JSON":               {slog.Any("v", json.RawMessage(`{"n":1}`)), map[string]any{"n": 1.0}},
-		"JSON number":            {slog.Any("v", json.Number("12")), 12.0},
-		"channel":                {slog.Any("v", make(chan int)), "!ERROR:json: unsupported type: chan int"},
-		"func":                   {slog.Any("v", func() {}), "!ERROR:json: unsupported type: func()"},
+		"float64 in a map":       {slog.Any("v", map[string]any{"f": 2.5}), map[string]any{"f": 2.5}},
+		"nil in a map":           {slog.Any("v", map[string]any{"a": nil}), map[string]any{"a": nil}},
+		"NaN in a map":           {slog.Any("v", map[string]any{"f": math.NaN()}), nanError},
+		"float32 NaN in a map":   {slog.Any("v", map[string]any{"f": float32(math.NaN())}), nanError},
+		"bad UTF-8 key in a map": {slog.Any("v", map[string]any{"k\xff": 1}), map[string]any{"k�": 1.0}},
+		"bad UTF-8 in a map":     {slog.Any("v", map[string]any{"s": "a\xffb"}), map[string]any{"s": "a�b"}},
+		"struct in a slice":      {slog.Any("v", []any{point{1, 2}}), []any{map[string]any{"X": 1.0, "Y": 2.0}}},
+		"integers in a map": {
+			slog.Any("v", map[string]any{
+				"i8": int8(-1), "i16": int16(-2), "i32": int32(-3), "i64": int64(-4),
+				"u": uint(5), "u8": uint8(6), "u16": uint16(7), "u32": uint32(8), "u64": uint64(9),
+			}),
+			map[string]any{
+				"i8": -1.0, "i16": -2.0, "i32": -3.0, "i64": -4.0,
+				"u": 5.0, "u8": 6.0, "u16": 7.0, "u32": 8.0, "u64": 9.0,
+			},
+		},
+		"bytes":       {slog.Any("v", []byte{1, 2, 3}), "AQID"},
+		"nil bytes":   {slog.Any("v", []byte(nil)), nil},
+		"raw JSON":    {slog.Any("v", json.RawMessage(`{"n":1}`)), map[string]any{"n": 1.0}},
+		"JSON number": {slog.Any("v", json.Number("12")), 12.0},
+		"channel":     {slog.Any("v", make(chan int)), "!ERROR:json: unsupported type: chan int"},
+		"func":        {slog.Any("v", func() {}), "!ERROR:json: unsupported type: func()"},
 	}
 
 	for name, tc := range tests {
