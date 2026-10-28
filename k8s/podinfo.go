@@ -45,6 +45,11 @@ const (
 // If the options have more than one WithPodinfoLabels option, the handler
 // uses the last WithPodinfoLabels option.
 //
+// WithPodinfoLabels reads the file once, when the handler applies the
+// option.  A later change to the file has no effect.  If WithPodinfoLabels
+// cannot read the file, it logs a warning with the default slog.Logger, and
+// the option has no effect.
+//
 // The handler adds the prefix "k8s-pod/" to each label.  This follows the
 // Google Cloud Logging conventions for Kubernetes Pod labels.
 func WithPodinfoLabels(root string) gslog.Option {
