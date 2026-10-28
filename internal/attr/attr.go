@@ -24,7 +24,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/pkg/errors"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog/internal/timefmt"
@@ -193,9 +192,7 @@ func NewAny(a any) *spb.Value {
 	// Try to convert the value to a JSON object.
 	value, err := AsJSON(a)
 	if err != nil {
-		cause := errors.Cause(err)
-
-		return NewStringValue(errorPrefix + cause.Error())
+		return NewStringValue(errorPrefix + err.Error())
 	}
 
 	return value
@@ -231,12 +228,12 @@ func ToJSON(a any) (any, error) {
 	enc := json.NewEncoder(&buf)
 
 	if err := enc.Encode(a); err != nil {
-		return nil, errors.Wrap(err, "unable to encode attr")
+		return nil, err
 	}
 
 	var result any
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
-		return nil, errors.Wrap(err, "unable to decode attr")
+		return nil, err
 	}
 
 	return result, nil

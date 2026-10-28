@@ -24,7 +24,6 @@ import (
 
 	"cloud.google.com/go/logging"
 	logpb "cloud.google.com/go/logging/apiv2/loggingpb"
-	"github.com/pkg/errors"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog"
@@ -191,7 +190,7 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 // accurate error reports, set Client.OnError.
 func (h *Handler) Flush() error {
 	if err := h.log.Flush(); err != nil {
-		return errors.Wrap(err, "failed to flush handler")
+		return fmt.Errorf("failed to flush handler: %w", err)
 	}
 
 	return nil
