@@ -17,7 +17,6 @@ package gslog_test
 import (
 	"context"
 	"fmt"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -125,46 +124,3 @@ var _ = Describe("labels", func() {
 		})
 	})
 })
-
-const (
-	count = 10
-)
-
-var (
-	labels map[string]string
-	ctx    context.Context
-)
-
-type mockKey struct{}
-
-func init() {
-	labels = make(map[string]string, count)
-	for i := 1; i <= count; i++ {
-		key := fmt.Sprintf("key_%06d", i)
-		value := fmt.Sprintf("val_%06d", i)
-
-		labels[key] = value
-	}
-
-	ctx = context.Background()
-
-	for i := 1; i <= count; i++ {
-		k := fmt.Sprintf("key_%06d", i)
-		v := fmt.Sprintf("overridden_%06d", i)
-
-		ctx = gslog.WithLabels(ctx, gslog.Label(k, v))
-		ctx = context.WithValue(ctx, mockKey{}, v)
-	}
-
-	for i := 1; i <= count; i++ {
-		k := fmt.Sprintf("key_%06d", i)
-		v := fmt.Sprintf("val_%06d", i)
-
-		ctx = gslog.WithLabels(ctx, gslog.Label(k, v))
-		ctx = context.WithValue(ctx, mockKey{}, v)
-	}
-}
-
-func BenchmarkLabelsFrom(b *testing.B) {
-	gslog.LabelsFrom(ctx)
-}
