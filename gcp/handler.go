@@ -122,7 +122,10 @@ func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {
 // higher with LogSync, and the other records with Log.  If LogSync returns
 // an error, Handle writes the error to os.Stderr and returns the error.
 func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
-	e := entry.Fill(ctx, &record, h.addSource, h.entryAugmentors)
+	e := entry.Alloc()
+	defer entry.Release(e)
+
+	entry.Fill(ctx, &record, h.addSource, h.entryAugmentors, e)
 
 	payload := h.decorate(h.payload, h.groups, &record, e.Attrs)
 
@@ -138,7 +141,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		decorateErrorReport(payload, &report)
 	}
 
-	logEntry := toLogEntry(&e, &record, payload)
+	logEntry := toLogEntry(e, &record, payload)
 	logEntry.HTTPRequest = httpRequestFrom(ctx)
 
 	if logEntry.Severity >= logging.Critical {

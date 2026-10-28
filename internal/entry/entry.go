@@ -20,6 +20,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -41,22 +42,42 @@ type Entry struct {
 // Augmentor sets fields of an entry from the context.
 type Augmentor func(ctx context.Context, e *Entry)
 
-// Fill returns the entry for the record.  Fill sets the source location when
-// addSource is true, calls each augmentor, and then adds the labels of ctx.
-func Fill(ctx context.Context, record *slog.Record, addSource bool, augmentors []Augmentor) Entry {
-	var e Entry
+// pool holds the entries that Alloc returns.
+var pool = sync.Pool{
+	New: func() any {
+		return new(Entry)
+	},
+}
 
+// Alloc returns an empty entry from the pool.  Call Release after the last
+// use of the entry.
+func Alloc() *Entry {
+	e, _ := pool.Get().(*Entry)
+
+	return e
+}
+
+// Release clears the entry and puts it in the pool.  Release keeps the
+// capacity of Attrs for the next use.  Do not use the entry after the call.
+func Release(e *Entry) {
+	clear(e.Attrs)
+	*e = Entry{Attrs: e.Attrs[:0]}
+
+	pool.Put(e)
+}
+
+// Fill fills e for the record.  Fill sets the source location when addSource
+// is true, calls each augmentor, and then adds the labels of ctx.
+func Fill(ctx context.Context, record *slog.Record, addSource bool, augmentors []Augmentor, e *Entry) {
 	if addSource {
 		e.Source = record.Source()
 	}
 
 	for _, augment := range augmentors {
-		augment(ctx, &e)
+		augment(ctx, e)
 	}
 
-	AddLabels(ctx, &e)
-
-	return e
+	AddLabels(ctx, e)
 }
 
 // Labels holds the labels of an entry.  Keys holds the keys of Map in sorted

@@ -47,7 +47,9 @@ func TestFill(t *testing.T) {
 		},
 	}
 
-	e := entry.Fill(ctx, &record, true, augmentors)
+	var e entry.Entry
+
+	entry.Fill(ctx, &record, true, augmentors, &e)
 
 	require.NotNil(t, e.Source)
 	assert.Contains(t, e.Source.Function, "TestFill")
@@ -60,10 +62,26 @@ func TestFill(t *testing.T) {
 func TestFill_noSource(t *testing.T) {
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "message", 0)
 
-	e := entry.Fill(context.Background(), &record, false, nil)
+	var e entry.Entry
+
+	entry.Fill(context.Background(), &record, false, nil, &e)
 
 	assert.Nil(t, e.Source)
 	assert.Zero(t, e.Labels.Len())
+}
+
+func TestRelease(t *testing.T) {
+	e := entry.Alloc()
+	e.Trace = "trace"
+	e.Attrs = append(e.Attrs, slog.String("a", "1"))
+
+	entry.Release(e)
+
+	e = entry.Alloc()
+	defer entry.Release(e)
+
+	assert.Zero(t, e.Trace)
+	assert.Empty(t, e.Attrs)
 }
 
 func TestAddLabels(t *testing.T) {

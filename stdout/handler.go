@@ -124,7 +124,10 @@ func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {
 // Handle writes the record as one line of JSON.  Handle returns the error
 // from the writer.
 func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
-	e := entry.Fill(ctx, &record, h.addSource, h.entryAugmentors)
+	e := entry.Alloc()
+	defer entry.Release(e)
+
+	entry.Fill(ctx, &record, h.addSource, h.entryAugmentors, e)
 
 	w := jbuf.AllocWriter()
 	defer jbuf.ReleaseWriter(w)
@@ -133,7 +136,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 		w.AppendErrorReport(&report)
 	}
 
-	h.appendHeader(w, &e, &record)
+	h.appendHeader(w, e, &record)
 	h.appendBody(w, &record, e.Attrs)
 
 	w.CloseLine()
