@@ -70,7 +70,7 @@ var _ slog.Handler = (*Handler)(nil)
 // the logger.
 func NewHandler(logger Logger, opts ...gslog.Option) *Handler {
 	if logger == nil {
-		panic("client is nil")
+		panic("logger is nil")
 	}
 
 	o := options.ApplyOptions(opts...)

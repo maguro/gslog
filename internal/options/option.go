@@ -23,8 +23,7 @@ import (
 	"m4o.io/gslog/internal/entry"
 )
 
-// Options holds the information necessary to construct an instance of
-// GcpHandler.
+// Options holds the settings that a handler constructor reads.
 type Options struct {
 	// ExplicitLogLevel, EnvVarLogLevel, and DefaultLogLevel hold the levels
 	// from the level options.  A nil value means that no option set the
