@@ -77,6 +77,7 @@ func TestValueParity(t *testing.T) {
 		"time":        {slog.Time("v", ts), "2000-01-02T03:04:05.123+01:00"},
 		"zero time":   {slog.Time("v", time.Time{}), "0001-01-01T00:00:00.000Z"},
 		"group":       {slog.Group("v", slog.Int("n", 1)), map[string]any{"n": 1.0}},
+		"empty group": {slog.Group("v", slog.Attr{}), nil},
 
 		"nil":                    {slog.Any("v", nil), nil},
 		"error":                  {slog.Any("v", errors.New("ouch")), "ouch"},

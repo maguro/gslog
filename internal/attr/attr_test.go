@@ -265,6 +265,7 @@ func TestValToStruct(t *testing.T) {
 		"time":                   {slog.TimeValue(now), attr.NewTimeValue(now), true},
 		"group":                  {slog.GroupValue(uGroup...), uStruct, true},
 		"group empty":            {slog.GroupValue(), nil, false},
+		"group of empty attrs":   {slog.GroupValue(slog.Attr{}), nil, false},
 		"any LogValuer":          {slog.AnyValue(pw), nil, false}, // this should have been transformed earlier via Resolve()
 		"any resolved LogValuer": {slog.AnyValue(pw).Resolve(), attr.NewStringValue("<secret>"), true},
 		"any JSON":               {slog.AnyValue(u), uStruct, true},

@@ -92,7 +92,12 @@ func ValToStruct(v slog.Value) (*spb.Value, bool) {
 			return nil, false
 		}
 
-		return NewGroupValue(v.Group()), true
+		group := NewGroupValue(v.Group())
+		if len(group.GetStructValue().GetFields()) == 0 {
+			return nil, false
+		}
+
+		return group, true
 	case slog.KindAny:
 		return NewAny(v.Any()), true
 	default:
