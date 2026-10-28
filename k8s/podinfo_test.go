@@ -96,6 +96,26 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 			})
 	})
 
+	When("the podinfo labels file has values without quotes", func() {
+		BeforeEach(func() {
+			root = "testdata/bare/podinfo"
+		})
+
+		It("the values are loaded as they are",
+			func() {
+				e := &entry.Entry{}
+				for _, a := range o.EntryAugmentors {
+					a(ctx, e)
+				}
+
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
+					k8s.PodPrefix + "empty": Equal(""),
+					k8s.PodPrefix + "quote": Equal(`"`),
+					k8s.PodPrefix + "plain": Equal("raw"),
+				}))
+			})
+	})
+
 	When("the podinfo labels file exists but contents are bad", func() {
 		BeforeEach(func() {
 			root = "testdata/ouch/podinfo"

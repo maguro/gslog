@@ -78,14 +78,14 @@ func podinfoAugmentor(root string) entry.Augmentor {
 }
 
 // podLabels returns the labels in props.  The function removes the quotes
-// from each value, adds PodPrefix to each key, and replaces a byte that is
-// not valid UTF-8 with U+FFFD.
+// around a quoted value, adds PodPrefix to each key, and replaces a byte that
+// is not valid UTF-8 with U+FFFD.
 func podLabels(props *properties.Properties) map[string]string {
 	labels := make(map[string]string, props.Len())
 
 	for key, val := range props.Map() {
-		if val[0] == '"' {
-			val = val[1 : len(val)-1]
+		if n := len(val); n >= 2 && val[0] == '"' && val[n-1] == '"' {
+			val = val[1 : n-1]
 		}
 
 		labels[PodPrefix+entry.ValidUTF8(key)] = entry.ValidUTF8(val)
