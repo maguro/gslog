@@ -55,30 +55,8 @@ type Options struct {
 	Level slog.Leveler
 
 	// ReplaceAttr rewrites each non-group attribute before the handler logs
-	// the attribute.  The handler resolves the value of the attribute before
-	// the call (see [slog.Value.Resolve]).  If ReplaceAttr returns a zero
-	// Attr, the handler discards the attribute.
-	//
-	// The handler passes the built-in attribute with key "message" to this
-	// function.
-	//
-	// The first argument is a list of the open groups that contain the Attr.
-	// Do not retain or modify this list.  The handler never calls ReplaceAttr
-	// for a Group attribute.  The handler calls ReplaceAttr for the contents
-	// of the group.  For example, the attribute list
-	//
-	//     Int("a", 1), Group("g", Int("b", 2)), Int("c", 3)
-	//
-	// results in consecutive calls to ReplaceAttr with these arguments:
-	//
-	//     nil, Int("a", 1)
-	//     []string{"g"}, Int("b", 2)
-	//     nil, Int("c", 3)
-	//
-	// ReplaceAttr can change the default keys of the built-in attributes,
-	// convert types (for example, replace a `time.Time` with the integer
-	// seconds since the Unix epoch), sanitize personal information, or remove
-	// attributes from the output.
+	// the attribute.  gslog.AttrMapper describes the calls that the handler
+	// makes.
 	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
 }
 

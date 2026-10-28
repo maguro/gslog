@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package mapper contains the attribute mapper that rewrites attributes
-// before a handler logs them.
+// Package mapper contains the wrapper of the attribute mapper that rewrites
+// attributes before a handler logs them.
 package mapper
 
-import "log/slog"
+import (
+	"log/slog"
 
-// Mapper rewrites each non-group attribute before the handler logs the
-// attribute.
-type Mapper func(groups []string, attr slog.Attr) slog.Attr
+	"m4o.io/gslog"
+)
 
 // Wrap wraps a mapper with checks for empty groups.  The wrapper elides an
 // empty group.
-func Wrap(mapper Mapper) Mapper {
+func Wrap(mapper gslog.AttrMapper) gslog.AttrMapper {
 	if mapper == nil {
 		return nil
 	}
 
-	var wrapped Mapper
+	var wrapped gslog.AttrMapper
 
 	wrapped = func(groups []string, attr slog.Attr) slog.Attr {
 		attr.Value = attr.Value.Resolve()

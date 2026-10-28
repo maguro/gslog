@@ -58,7 +58,7 @@ type Handler struct {
 	addSource       bool
 	entryAugmentors []entry.Augmentor
 	errorReporter   *entry.Reporter
-	replaceAttr     mapper.Mapper
+	replaceAttr     gslog.AttrMapper
 
 	payload *spb.Struct
 	groups  []string

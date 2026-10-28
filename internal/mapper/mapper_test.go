@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/mapper"
 )
 
@@ -31,7 +32,7 @@ func removeMapper(_ slog.Attr) slog.Attr {
 	return slog.Attr{}
 }
 
-func genReplace(r slog.Attr, groups ...string) mapper.Mapper {
+func genReplace(r slog.Attr, groups ...string) gslog.AttrMapper {
 	return func(g []string, a slog.Attr) slog.Attr {
 		if reflect.DeepEqual(groups, g) {
 			return r
@@ -40,7 +41,7 @@ func genReplace(r slog.Attr, groups ...string) mapper.Mapper {
 	}
 }
 
-func genMapper(fn attrFunc, groups []string, keys ...string) mapper.Mapper {
+func genMapper(fn attrFunc, groups []string, keys ...string) gslog.AttrMapper {
 	return func(g []string, a slog.Attr) slog.Attr {
 		for _, key := range keys {
 			if reflect.DeepEqual(groups, g) && a.Key == key {
@@ -59,7 +60,7 @@ func TestWrap(t *testing.T) {
 	tests := map[string]struct {
 		groups   []string
 		attr     slog.Attr
-		mapper   mapper.Mapper
+		mapper   gslog.AttrMapper
 		expected slog.Attr
 	}{
 		"simple replacement":  {nil, slog.Int("a", 1), genReplace(slog.Int("b", 2)), slog.Int("b", 2)},

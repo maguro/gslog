@@ -60,7 +60,7 @@ type Handler struct {
 	addSource       bool
 	entryAugmentors []entry.Augmentor
 	errorReporter   *entry.Reporter
-	replaceAttr     mapper.Mapper
+	replaceAttr     gslog.AttrMapper
 
 	// groups holds the open group names.  prefix[i] holds the serialized
 	// attributes at group level i, without a leading comma.  reportPrefix
