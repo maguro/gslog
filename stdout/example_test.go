@@ -27,7 +27,7 @@ import (
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/otel"
@@ -85,7 +85,7 @@ func ExampleHandler_Handle_withLabels() {
 	h := stdout.NewHandler(os.Stdout)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	_ = h.Handle(ctx, newRecord())
 
@@ -102,7 +102,7 @@ func ExampleNewHandler_withK8sPodinfo() {
 	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("../k8s/testdata/etc/podinfo"))
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	_ = h.Handle(ctx, newRecord())
 
@@ -147,13 +147,13 @@ func ExampleNewHandler_withOpenTelemetryTrace() {
 	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/trace":"projects/my-project/traces/52fc1643a9381fc674742bb0067101e7","logging.googleapis.com/spanId":"d3e9e8c51cb190df","logging.googleapis.com/trace_sampled":true}
 }
 
-// With the core.WithSourceAdded() option, stdout.Handler adds the field
+// With the gslog.WithSourceAdded() option, stdout.Handler adds the field
 // "logging.googleapis.com/sourceLocation" to the line.  This field is
 // expensive to compute.
 func ExampleNewHandler_withSourceAdded() {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithSourceAdded())
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
 
 	var pcs [1]uintptr
 
@@ -179,7 +179,7 @@ func ExampleNewHandler_withSourceAdded() {
 	// Output: {"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"160"}
 }
 
-// RemovePassword is a core.AttrMapper that elides password attributes.
+// RemovePassword is a gslog.AttrMapper that elides password attributes.
 func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == "password" {
 		return slog.Attr{}
@@ -188,11 +188,11 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-// With the core.WithReplaceAttr() option, stdout.Handler applies the
-// supplied core.AttrMapper to each non-group attribute before the handler
+// With the gslog.WithReplaceAttr() option, stdout.Handler applies the
+// supplied gslog.AttrMapper to each non-group attribute before the handler
 // writes the attribute.
 func ExampleNewHandler_withReplaceAttr() {
-	var h slog.Handler = stdout.NewHandler(os.Stdout, core.WithReplaceAttr(RemovePassword))
+	var h slog.Handler = stdout.NewHandler(os.Stdout, gslog.WithReplaceAttr(RemovePassword))
 	h = h.WithGroup("pub")
 	h = h.WithAttrs([]slog.Attr{slog.String("username", "user-12234"), slog.String("password", "hunter2")})
 
@@ -201,10 +201,10 @@ func ExampleNewHandler_withReplaceAttr() {
 	// Output: {"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","pub":{"username":"user-12234"}}
 }
 
-// With the core.WithLeveler() option, stdout.Handler uses the
+// With the gslog.WithLeveler() option, stdout.Handler uses the
 // slog.Leveler to decide whether a log level is enabled.
 func ExampleNewHandler_withLeveler() {
-	h := stdout.NewHandler(os.Stdout, core.WithLeveler(slog.LevelError))
+	h := stdout.NewHandler(os.Stdout, gslog.WithLeveler(slog.LevelError))
 
 	ctx := context.Background()
 
@@ -213,7 +213,7 @@ func ExampleNewHandler_withLeveler() {
 	// Output: false true
 }
 
-// With the core.WithLogLevelFromEnvVar() option, stdout.Handler reads its
+// With the gslog.WithLogLevelFromEnvVar() option, stdout.Handler reads its
 // log level from the environment variable that the key names.
 func ExampleNewHandler_withLogLevelFromEnvVar() {
 	const envVar = "FOO_LOG_LEVEL"
@@ -222,7 +222,7 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 		_ = os.Unsetenv(envVar)
 	}()
 
-	h := stdout.NewHandler(os.Stdout, core.WithLogLevelFromEnvVar(envVar))
+	h := stdout.NewHandler(os.Stdout, gslog.WithLogLevelFromEnvVar(envVar))
 
 	ctx := context.Background()
 
@@ -231,14 +231,14 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 	// Output: false true
 }
 
-// The core.WithDefaultLeveler() option sets a default log level.  The
+// The gslog.WithDefaultLeveler() option sets a default log level.  The
 // environment variable is not set, so the default applies.
 func ExampleNewHandler_withDefaultLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 
 	h := stdout.NewHandler(os.Stdout,
-		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLeveler(slog.LevelError),
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelError),
 	)
 
 	ctx := context.Background()

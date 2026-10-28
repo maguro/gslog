@@ -23,7 +23,7 @@ import (
 	"slices"
 	"sync"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
 	"m4o.io/gslog/internal/mapper"
@@ -75,7 +75,7 @@ var _ slog.Handler = (*Handler)(nil)
 
 // NewHandler creates a Handler that writes to w.  If w is nil, the handler
 // writes to os.Stdout.
-func NewHandler(w io.Writer, opts ...core.Option) *Handler {
+func NewHandler(w io.Writer, opts ...gslog.Option) *Handler {
 	if w == nil {
 		w = os.Stdout
 	}
@@ -229,12 +229,12 @@ func (h *Handler) appendHeader(w *jbuf.Writer, e *entry.Entry, record *slog.Reco
 // appendMessage appends the message.  appendMessage does not write a renamed
 // message when Member returns nil for the new key.
 func (h *Handler) appendMessage(w *jbuf.Writer, record *slog.Record) {
-	message := slog.String(core.MessageKey, record.Message)
+	message := slog.String(gslog.MessageKey, record.Message)
 	if h.replaceAttr != nil {
 		message = h.replaceAttr(nil, message)
 	}
 
-	if message.Key != core.MessageKey && w.Member(message.Key) == nil {
+	if message.Key != gslog.MessageKey && w.Member(message.Key) == nil {
 		return
 	}
 

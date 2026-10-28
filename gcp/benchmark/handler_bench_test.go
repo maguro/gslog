@@ -22,7 +22,7 @@ import (
 
 	"cloud.google.com/go/logging"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -39,7 +39,7 @@ func (noopLogger) Flush() error {
 }
 
 func BenchmarkHandleThreeAttrs(b *testing.B) {
-	h := gcp.NewHandler(noopLogger{}, core.WithLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(noopLogger{}, gslog.WithLeveler(slog.LevelInfo))
 	ctx := context.Background()
 
 	b.ReportAllocs()

@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/testhelp"
 	"m4o.io/gslog/stdout"
@@ -36,7 +36,7 @@ var _ = Describe("The error report", func() {
 	var (
 		buf     *bytes.Buffer
 		version string
-		opts    []core.Option
+		opts    []gslog.Option
 		logger  *slog.Logger
 	)
 
@@ -69,7 +69,7 @@ var _ = Describe("The error report", func() {
 	JustBeforeEach(func() {
 		report := entry.ErrorReport{Service: "svc", Version: version, StackTrace: reportStack}
 		option := testhelp.WithErrorReport(report)
-		all := append([]core.Option{option}, opts...)
+		all := append([]gslog.Option{option}, opts...)
 
 		h := stdout.NewHandler(buf, all...)
 		logger = slog.New(h)
@@ -247,14 +247,14 @@ var _ = Describe("The error report", func() {
 	Describe("a message that the mapper renames to a key of the error report", func() {
 		BeforeEach(func() {
 			rename := func(_ []string, a slog.Attr) slog.Attr {
-				if a.Key == core.MessageKey {
+				if a.Key == gslog.MessageKey {
 					a.Key = "stack_trace"
 				}
 
 				return a
 			}
 
-			opts = []core.Option{core.WithReplaceAttr(rename)}
+			opts = []gslog.Option{gslog.WithReplaceAttr(rename)}
 		})
 
 		It("is not written in a record with a report", func() {

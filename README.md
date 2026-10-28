@@ -143,8 +143,8 @@ gslog has two handlers. Both handlers make the same Google Cloud Logging
   [Cloud Logging API client](https://pkg.go.dev/cloud.google.com/go/logging).
 - `stdout` holds a handler that writes each entry as one line of JSON. A
   logging agent reads the line and makes the entry.
-- `core` holds the options, the labels, and the levels that both handlers
-  use.
+- `gslog`, the root package, holds the options, the labels, and the levels
+  that both handlers use.
 - `otel` and `k8s` hold options that read information from other frameworks.
 
 The `gcp` handler fills the GCL entry, `logging.Entry`, directly. The handler
@@ -158,7 +158,7 @@ The handler [sends log records at Critical level or higher synchronously](https:
 The options of both handlers include several ways to include information
 from other frameworks:
 
-- Labels in the context, set with `core.WithLabels(ctx, ...labels)`. The
+- Labels in the context, set with `gslog.WithLabels(ctx, ...labels)`. The
   handlers add them to the labels of the GCL entry. The maximum number of
   labels is 64.
 - [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) in the context. The handlers add
@@ -194,7 +194,7 @@ import (
 
 	"cloud.google.com/go/logging"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -218,7 +218,7 @@ func main() {
 	logger := slog.New(h)
 
 	logger.Info("How now brown cow?")
-	logger.Log(ctx, core.LevelCritical, "Danger, Will Robinson!")
+	logger.Log(ctx, gslog.LevelCritical, "Danger, Will Robinson!")
 }
 ```
 
@@ -262,7 +262,7 @@ that the agent reads. The agent makes the same GCL entry that the API client
 makes, with the same severity, labels, trace fields, and `jsonPayload`.
 
 This handler does not use a `logging.Client`. The `stdout` package and the
-`core` package, which holds the shared options, labels, and levels, import no
+`gslog` package, which holds the shared options, labels, and levels, import no
 module outside the standard library. The handler writes each entry before the
 log call returns, so no entry waits in a buffer when the instance stops. All
 options in the table below work with both handlers.
@@ -271,22 +271,22 @@ options in the table below work with both handlers.
 
 `gcp.NewHandler(logger, ...options)` and `stdout.NewHandler(w, ...options)`
 create a [Handler](https://pkg.go.dev/log/slog#Handler). They accept these
-options from the `core` package:
+options from the `gslog` package:
 
 | Configuration option                   |     Arguments      | Description                                                                                                                                                                                                                                                                                                                    |
 |----------------------------------------|:------------------:|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `core.WithLeveler(leveler)`            |   `slog.Leveler`   | Specifies the `slog.Leveler` for logging. This option has precedence over the other log level options.                                                                                                                                                                                                                         |
-| `core.WithLogLevelFromEnvVar(envVar)`  |      `string`      | Reads the log level from the environment variable that the key names. The value is an integer `slog.Level` or a level name, such as `debug`, `NOTICE`, or `INFO+2`. A value that is not valid causes a warning and has no effect.                                                                                              |
-| `core.WithDefaultLeveler(leveler)`     |   `slog.Leveler`   | Specifies the default `slog.Leveler` for logging.                                                                                                                                                                                                                                                                              |
-| `core.WithSourceAdded()`               |                    | Causes the handler to compute the source code position of the log statement. The gcp handler sets the `SourceLocation` field of the `logging.Entry`. The stdout handler writes the `logging.googleapis.com/sourceLocation` field.                                                                                             |
-| `core.WithReplaceAttr(mapper)`         | `core.AttrMapper`  | Specifies an attribute mapper. The handler calls the mapper to rewrite each non-group attribute before the handler logs the attribute.                                                                                                                                                                                         |
+| `gslog.WithLeveler(leveler)`           |   `slog.Leveler`   | Specifies the `slog.Leveler` for logging. This option has precedence over the other log level options.                                                                                                                                                                                                                         |
+| `gslog.WithLogLevelFromEnvVar(envVar)` |      `string`      | Reads the log level from the environment variable that the key names. The value is an integer `slog.Level` or a level name, such as `debug`, `NOTICE`, or `INFO+2`. A value that is not valid causes a warning and has no effect.                                                                                              |
+| `gslog.WithDefaultLeveler(leveler)`    |   `slog.Leveler`   | Specifies the default `slog.Leveler` for logging.                                                                                                                                                                                                                                                                              |
+| `gslog.WithSourceAdded()`              |                    | Causes the handler to compute the source code position of the log statement. The gcp handler sets the `SourceLocation` field of the `logging.Entry`. The stdout handler writes the `logging.googleapis.com/sourceLocation` field.                                                                                             |
+| `gslog.WithReplaceAttr(mapper)`        | `gslog.AttrMapper` | Specifies an attribute mapper. The handler calls the mapper to rewrite each non-group attribute before the handler logs the attribute.                                                                                                                                                                                         |
 | `otel.WithBaggage()`                   |                    | Causes the handler to include [OpenTelemetry baggage](https://opentelemetry.io/docs/concepts/signals/baggage/). The handler gets the `baggage.Baggage` from the context, if the context has one, and adds the baggage as attributes.                                                                                           |
 | `otel.WithTracing(id)`                 |      `string`      | Causes the handler to include [OpenTelemetry tracing](https://opentelemetry.io/docs/concepts/signals/traces/). The handler gets the tracing information from the `trace.SpanContext` in the context, if the context has one. `id` is the ID of the project that holds the traces.                                                                                                   |
 | `detect.WithTracing()`                 |                    | The same as `otel.WithTracing(id)`, with the project ID from the metadata server and then from `GOOGLE_CLOUD_PROJECT`. If it finds no project ID, the handler includes no tracing. The `detect` package is `m4o.io/gslog/otel/detect`. |
 | `k8s.WithPodinfoLabels(root)`          |      `string`      | Causes the handler to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The handler expects the labels file in the directory that root specifies. The file must be named "labels", as the Kubernetes Downward API for Pods specifies. |
 | `errorreporting.WithService(service, version)` | `string`, `string` | Causes the handler to include the fields that [Google Cloud Error Reporting](https://cloud.google.com/error-reporting/docs/formatting-error-messages) reads in each record at level Error or higher: the `@type` of a `ReportedErrorEvent`, the `serviceContext`, and a `stack_trace`. The stack trace is the stack of the log call. |
 
-The [examples](docs/examples.md) show the options of the `core`, `otel`,
+The [examples](docs/examples.md) show the options of the `gslog`, `otel`,
 `k8s`, and `errorreporting` packages in complete programs, with their output.
 
 ## Design Notes

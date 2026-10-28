@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core_test
+package gslog_test
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/options"
 )
 
@@ -53,7 +53,7 @@ func TestLogLevel(t *testing.T) {
 		"garbage keeps default":      {levelUnknown, slog.LevelDebug, true, envVarLogLevelKey, "OUCH", slog.LevelDebug},
 		"env var lower case":         {levelUnknown, levelUnknown, true, envVarLogLevelKey, "debug", slog.LevelDebug},
 		"env var offset":             {levelUnknown, levelUnknown, true, envVarLogLevelKey, "WARN+2", slog.Level(6)},
-		"env var NOTICE":             {levelUnknown, levelUnknown, true, envVarLogLevelKey, "NOTICE", core.LevelNotice},
+		"env var NOTICE":             {levelUnknown, levelUnknown, true, envVarLogLevelKey, "NOTICE", gslog.LevelNotice},
 		"env var DEBUG":              {levelUnknown, levelUnknown, true, envVarLogLevelKey, "DEBUG", slog.LevelDebug},
 		"env var INFO":               {levelUnknown, levelUnknown, true, envVarLogLevelKey, "INFO", slog.LevelInfo},
 		"env var WARN":               {levelUnknown, levelUnknown, true, envVarLogLevelKey, "WARN", slog.LevelWarn},
@@ -68,10 +68,10 @@ func TestLogLevel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var opts []options.OptionProcessor
 			if tc.explicitLogLevel != levelUnknown {
-				opts = append(opts, core.WithLeveler(tc.explicitLogLevel))
+				opts = append(opts, gslog.WithLeveler(tc.explicitLogLevel))
 			}
 			if tc.defaultLogLevel != levelUnknown {
-				opts = append(opts, core.WithDefaultLeveler(tc.defaultLogLevel))
+				opts = append(opts, gslog.WithDefaultLeveler(tc.defaultLogLevel))
 			}
 			if tc.envVar {
 				if tc.envVarKey != "" {
@@ -80,7 +80,7 @@ func TestLogLevel(t *testing.T) {
 						assert.NoError(t, os.Unsetenv(envVarLogLevelKey))
 					}()
 				}
-				opts = append(opts, core.WithLogLevelFromEnvVar(envVarLogLevelKey))
+				opts = append(opts, gslog.WithLogLevelFromEnvVar(envVarLogLevelKey))
 			}
 
 			o := options.ApplyOptions(opts...)
@@ -95,7 +95,7 @@ func TestWithLogLevelFromEnvVar(t *testing.T) {
 			t.Error("expected panic")
 		}
 	}()
-	core.WithLogLevelFromEnvVar("")
+	gslog.WithLogLevelFromEnvVar("")
 }
 
 func TestWithLogLevelFromEnvVar_invalidValueWarns(t *testing.T) {
@@ -108,24 +108,24 @@ func TestWithLogLevelFromEnvVar_invalidValueWarns(t *testing.T) {
 	t.Setenv(envVarLogLevelKey, "DEUBG")
 
 	o := options.ApplyOptions(
-		core.WithDefaultLeveler(slog.LevelWarn),
-		core.WithLogLevelFromEnvVar(envVarLogLevelKey))
+		gslog.WithDefaultLeveler(slog.LevelWarn),
+		gslog.WithLogLevelFromEnvVar(envVarLogLevelKey))
 
 	assert.Equal(t, slog.LevelWarn, o.Level)
 	assert.Contains(t, buf.String(), `level=WARN msg="Invalid log level" key=TEST_ENV_VAR value=DEUBG`)
 }
 
 func TestWithSourceAdded(t *testing.T) {
-	o := options.ApplyOptions(core.WithSourceAdded(), core.WithDefaultLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(gslog.WithSourceAdded(), gslog.WithDefaultLeveler(slog.LevelInfo))
 	assert.True(t, o.AddSource)
 }
 
 func TestWithReplaceAttr(t *testing.T) {
 	s := slog.String("foo", "bar")
-	var ra core.AttrMapper = func(groups []string, a slog.Attr) slog.Attr {
+	var ra gslog.AttrMapper = func(groups []string, a slog.Attr) slog.Attr {
 		return s
 	}
 
-	o := options.ApplyOptions(core.WithReplaceAttr(ra), core.WithDefaultLeveler(slog.LevelInfo))
+	o := options.ApplyOptions(gslog.WithReplaceAttr(ra), gslog.WithDefaultLeveler(slog.LevelInfo))
 	assert.Equal(t, s, o.ReplaceAttr(nil, slog.String("unused", "string")))
 }

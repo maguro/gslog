@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core_test
+package gslog_test
 
 import (
 	"testing"
@@ -25,5 +25,5 @@ func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
 	suiteConfig, reporterConfig := GinkgoConfiguration()
 	reporterConfig.Verbose = true
-	RunSpecs(t, "gslog core Suite", suiteConfig, reporterConfig)
+	RunSpecs(t, "gslog Suite", suiteConfig, reporterConfig)
 }

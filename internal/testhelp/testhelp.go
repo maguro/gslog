@@ -20,7 +20,7 @@ import (
 	"runtime"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
@@ -42,7 +42,7 @@ func CallerPC(depth int) uintptr {
 
 // WithErrorReport returns an option that gives the error report to each
 // record at level Error or higher.
-func WithErrorReport(report entry.ErrorReport) core.Option {
+func WithErrorReport(report entry.ErrorReport) gslog.Option {
 	reporter := &entry.Reporter{
 		MinLevel: slog.LevelError,
 		Report: func() entry.ErrorReport {

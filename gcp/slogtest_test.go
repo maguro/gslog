@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -62,8 +62,8 @@ func entryToMap(t *testing.T, e logging.Entry) map[string]any {
 
 	m := payload.AsMap()
 
-	if v, ok := m[core.MessageKey]; ok {
-		delete(m, core.MessageKey)
+	if v, ok := m[gslog.MessageKey]; ok {
+		delete(m, gslog.MessageKey)
 		m[slog.MessageKey] = v
 	}
 

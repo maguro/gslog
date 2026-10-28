@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -63,7 +63,7 @@ func TestWithHTTPRequest(t *testing.T) {
 		"request at level Critical": {
 			ctx: gcp.WithHTTPRequest(background, request),
 			log: func(ctx context.Context, l *slog.Logger) {
-				l.Log(ctx, core.LevelCritical, "request completed")
+				l.Log(ctx, gslog.LevelCritical, "request completed")
 			},
 			want: request,
 		},

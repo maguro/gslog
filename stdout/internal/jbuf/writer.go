@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
 	"m4o.io/gslog/internal/timefmt"
@@ -124,7 +124,7 @@ func ReleaseWriter(w *Writer) {
 // error report.
 func (w *Writer) Member(key string) *Writer {
 	switch key {
-	case core.MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
+	case gslog.MessageKey, agentSeverityKey, agentTimestampKey, agentLabelsKey, agentSourceLocationKey,
 		agentSpanIDKey, agentTraceKey, agentTraceSampledKey:
 		return nil
 	case entry.ReportTypeKey, entry.ServiceContextKey, entry.StackTraceKey:

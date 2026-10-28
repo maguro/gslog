@@ -26,7 +26,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/options"
 	"m4o.io/gslog/otel"
 )
@@ -46,7 +46,7 @@ const (
 // GOOGLE_CLOUD_PROJECT.  The detection can take two seconds when there is no
 // metadata server.  If WithTracing finds no project ID, the handler includes
 // no tracing.
-func WithTracing() core.Option {
+func WithTracing() gslog.Option {
 	source := newProjectSource()
 
 	return withTracing(source)
@@ -54,7 +54,7 @@ func WithTracing() core.Option {
 
 // withTracing is WithTracing with the source for the detection of the
 // project ID.
-func withTracing(source projectSource) core.Option {
+func withTracing(source projectSource) gslog.Option {
 	projectID := detectProjectID(source)
 	if projectID == "" {
 		return func(*options.Options) {}

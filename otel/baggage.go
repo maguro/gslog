@@ -22,7 +22,7 @@ import (
 
 	"go.opentelemetry.io/otel/baggage"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
@@ -64,7 +64,7 @@ const (
 //			slog.String("p2", "val2"),
 //		),
 //	)
-func WithBaggage() core.Option {
+func WithBaggage() gslog.Option {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, addBaggage)
 	}

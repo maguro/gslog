@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/attr"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
@@ -69,7 +69,7 @@ var _ slog.Handler = (*Handler)(nil)
 
 // NewHandler creates a Handler that writes to Google Cloud Logging through
 // the logger.
-func NewHandler(logger Logger, opts ...core.Option) *Handler {
+func NewHandler(logger Logger, opts ...gslog.Option) *Handler {
 	if logger == nil {
 		panic("client is nil")
 	}
@@ -122,7 +122,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	payload := h.decorate(h.payload, h.groups, &record, e.Attrs)
 
-	a := slog.String(core.MessageKey, record.Message)
+	a := slog.String(gslog.MessageKey, record.Message)
 	if h.replaceAttr != nil {
 		a = h.replaceAttr(nil, a)
 	}

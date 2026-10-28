@@ -29,7 +29,7 @@ import (
 	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/testhelp"
 	"m4o.io/gslog/otel"
 	"m4o.io/gslog/stdout"
@@ -58,7 +58,7 @@ func decodeLine(t *testing.T, buf *bytes.Buffer) map[string]any {
 func TestHandler_agentFields(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithSourceAdded(), otel.WithTracing("my-project"))
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded(), otel.WithTracing("my-project"))
 
 	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{0x52, 0xfc, 0x16, 0x43, 0xa9, 0x38, 0x1f, 0xc6, 0x74, 0x74, 0x2b, 0xb0, 0x06, 0x71, 0x01, 0xe7},
@@ -66,7 +66,7 @@ func TestHandler_agentFields(t *testing.T) {
 		TraceFlags: trace.FlagsSampled,
 	})
 	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
-	ctx = core.WithLabels(ctx, core.Label("b", "two"), core.Label("a", "one"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("b", "two"), gslog.Label("a", "one"))
 
 	record := slog.NewRecord(testhelp.Time, slog.LevelWarn, "How now brown cow?", testhelp.CallerPC(2))
 	record.AddAttrs(slog.Int("count", 3))
@@ -155,14 +155,14 @@ func TestHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
 	var buf bytes.Buffer
 
 	rename := func(_ []string, a slog.Attr) slog.Attr {
-		if a.Key == core.MessageKey {
+		if a.Key == gslog.MessageKey {
 			return slog.String("severity", a.Value.String())
 		}
 
 		return a
 	}
 
-	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(rename))).Info("hello")
+	slog.New(stdout.NewHandler(&buf, gslog.WithReplaceAttr(rename))).Info("hello")
 
 	assert.Equal(t, 1, strings.Count(buf.String(), `"severity":`))
 
@@ -175,7 +175,7 @@ func TestHandler_renamedMessageDoesNotShadowAgentKey(t *testing.T) {
 func TestHandler_noPCHasNoSourceLocation(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithSourceAdded())
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
 	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
 	require.NoError(t, h.Handle(context.Background(), record))
@@ -209,7 +209,7 @@ func TestHandler_writeError(t *testing.T) {
 func TestHandler_WithLeveler(t *testing.T) {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithLeveler(slog.LevelInfo))
+	h := stdout.NewHandler(&buf, gslog.WithLeveler(slog.LevelInfo))
 	l := slog.New(h.WithLeveler(slog.LevelError))
 
 	l.Warn("How now brown cow")
@@ -297,7 +297,7 @@ func TestHandler_elidedAttrsDoNotOpenGroups(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 
-			tc.log(slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(drop))))
+			tc.log(slog.New(stdout.NewHandler(&buf, gslog.WithReplaceAttr(drop))))
 
 			got := decodeLine(t, &buf)
 			delete(got, "severity")
@@ -359,7 +359,7 @@ func TestHandler_baggageGoesThroughReplaceAttr(t *testing.T) {
 	bag := otel.MustParse("email=jan@example.com")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(redact), otel.WithBaggage())).InfoContext(ctx, "hello")
+	slog.New(stdout.NewHandler(&buf, gslog.WithReplaceAttr(redact), otel.WithBaggage())).InfoContext(ctx, "hello")
 
 	got := decodeLine(t, &buf)
 
@@ -401,14 +401,14 @@ func TestHandler_replaceAttr(t *testing.T) {
 			return slog.Attr{}
 		}
 
-		if a.Key == core.MessageKey && len(groups) == 0 {
+		if a.Key == gslog.MessageKey && len(groups) == 0 {
 			return slog.String("msg", a.Value.String())
 		}
 
 		return a
 	}
 
-	slog.New(stdout.NewHandler(&buf, core.WithReplaceAttr(remove))).
+	slog.New(stdout.NewHandler(&buf, gslog.WithReplaceAttr(remove))).
 		With("password", "x", "user", "jan").
 		Info("hello", "password", "y", "n", 1)
 

@@ -17,7 +17,7 @@ package errorreporting
 import (
 	"log/slog"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
@@ -32,7 +32,7 @@ import (
 // in the same record.  If the options have more than one WithService option,
 // the handler uses the last WithService option.  WithService panics if
 // service is empty.
-func WithService(service, version string) core.Option {
+func WithService(service, version string) gslog.Option {
 	if service == "" {
 		panic("service is empty")
 	}

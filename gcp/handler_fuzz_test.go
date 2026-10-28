@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -37,7 +37,7 @@ func FuzzHandle(f *testing.F) {
 	f.Fuzz(func(t *testing.T, msg, group, key, value string) {
 		got := &Got{}
 
-		var h slog.Handler = gcp.NewHandler(got, core.WithDefaultLeveler(slog.LevelInfo))
+		var h slog.Handler = gcp.NewHandler(got, gslog.WithDefaultLeveler(slog.LevelInfo))
 		h = h.WithGroup(group)
 
 		attrs := []slog.Attr{slog.String(key, value), slog.Group(group, slog.String(key, value))}

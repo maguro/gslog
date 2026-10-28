@@ -30,7 +30,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/errorreporting"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/k8s"
@@ -154,7 +154,7 @@ func ExampleHandler_Handle_withLabels() {
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
 
@@ -172,9 +172,9 @@ func ExampleNewHandler_withK8sPodinfo() {
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
-	l.Log(ctx, core.LevelCritical, "Danger, Will Robinson!")
+	l.Log(ctx, gslog.LevelCritical, "Danger, Will Robinson!")
 
 	// Output: a=one, b=two, k8s-pod/app=hello-world, k8s-pod/environment=stg, k8s-pod/tier=backend, k8s-pod/track=stable
 }
@@ -252,11 +252,11 @@ func PrintSourceLocation(e logging.Entry) {
 	fmt.Println(string(b))
 }
 
-// With the core.WithSourceAdded() option, gcp.Handler adds the
+// With the gslog.WithSourceAdded() option, gcp.Handler adds the
 // SourceLocation field to the logging.Entry.  This field is expensive to
 // compute.
 func ExampleNewHandler_withSourceAdded() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintSourceLocation), core.WithSourceAdded())
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintSourceLocation), gslog.WithSourceAdded())
 	l := slog.New(h)
 
 	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
@@ -264,7 +264,7 @@ func ExampleNewHandler_withSourceAdded() {
 	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"262"}
 }
 
-// RemovePassword is a core.AttrMapper that elides password attributes.
+// RemovePassword is a gslog.AttrMapper that elides password attributes.
 func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == "password" {
 		return slog.Attr{}
@@ -272,11 +272,11 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-// With the core.WithReplaceAttr() option, gcp.Handler applies the
-// supplied core.AttrMapper to each non-group attribute before the handler
+// With the gslog.WithReplaceAttr() option, gcp.Handler applies the
+// supplied gslog.AttrMapper to each non-group attribute before the handler
 // logs the attribute.
 func ExampleNewHandler_withReplaceAttr() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithReplaceAttr(RemovePassword))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithReplaceAttr(RemovePassword))
 	l := slog.New(h)
 	l = l.WithGroup("pub")
 	l = l.With(slog.String("username", "user-12234"), slog.String("password", string(pw)))
@@ -286,10 +286,10 @@ func ExampleNewHandler_withReplaceAttr() {
 	// Output: {"message":"How now brown cow?","pub":{"username":"user-12234"}}
 }
 
-// With the core.WithLeveler() option, gcp.Handler uses the
+// With the gslog.WithLeveler() option, gcp.Handler uses the
 // slog.Leveler to decide whether a log level is enabled.
 func ExampleNewHandler_withLeveler() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLeveler(slog.LevelError))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLeveler(slog.LevelError))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -298,7 +298,7 @@ func ExampleNewHandler_withLeveler() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// With the core.WithLogLevelFromEnvVar() option, gcp.Handler reads its
+// With the gslog.WithLogLevelFromEnvVar() option, gcp.Handler reads its
 // log level from the environment variable that the key names.
 func ExampleNewHandler_withLogLevelFromEnvVar() {
 	const envVar = "FOO_LOG_LEVEL"
@@ -307,7 +307,7 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 		_ = os.Unsetenv(envVar)
 	}()
 
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLevelFromEnvVar(envVar))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLogLevelFromEnvVar(envVar))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -316,14 +316,14 @@ func ExampleNewHandler_withLogLevelFromEnvVar() {
 	// Output: {"message":"The rain in Spain lies mainly on the plane."}
 }
 
-// The core.WithDefaultLeveler() option sets a default log level.
+// The gslog.WithDefaultLeveler() option sets a default log level.
 func ExampleNewHandler_withDefaultLeveler() {
 	const envVar = "FOO_LOG_LEVEL"
 
 	h := gcp.NewHandler(
 		gcp.LoggerFunc(PrintJsonPayload),
-		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLeveler(slog.LevelError),
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelError),
 	)
 	l := slog.New(h)
 

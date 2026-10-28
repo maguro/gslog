@@ -30,7 +30,7 @@ import (
 
 	"github.com/magiconair/properties"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
@@ -48,7 +48,7 @@ const (
 //
 // The handler adds the prefix "k8s-pod/" to each label.  This follows the
 // Google Cloud Logging conventions for Kubernetes Pod labels.
-func WithPodinfoLabels(root string) core.Option {
+func WithPodinfoLabels(root string) gslog.Option {
 	return func(options *options.Options) {
 		options.EntryAugmentors = append(options.EntryAugmentors, podinfoAugmentor(root))
 	}

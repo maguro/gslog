@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package gslog contains Google Cloud Logging handlers for slog.
+// Package gslog contains the options, labels, and levels that the gslog
+// handlers for Google Cloud Logging share.
 //
-// The handlers are in the packages gcp and stdout.  The options, labels,
-// and levels that the handlers share are in the package core.  A program
-// that uses only the stdout handler imports the packages core and stdout,
-// and imports no client library.
+// The handlers are in the packages gcp and stdout.  This package and its
+// dependencies import no module outside the standard library.  A program that
+// uses only the stdout handler imports the packages gslog and stdout, and
+// imports no client library.
 package gslog

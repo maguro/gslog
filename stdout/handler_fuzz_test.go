@@ -23,7 +23,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -41,7 +41,7 @@ func FuzzHandle(f *testing.F) {
 	f.Fuzz(func(t *testing.T, msg, group, key, value string) {
 		var buf bytes.Buffer
 
-		var h slog.Handler = stdout.NewHandler(&buf, core.WithDefaultLeveler(slog.LevelInfo))
+		var h slog.Handler = stdout.NewHandler(&buf, gslog.WithDefaultLeveler(slog.LevelInfo))
 		h = h.WithGroup(group)
 
 		attrs := []slog.Attr{slog.String(key, value), slog.Group(group, slog.String(key, value))}

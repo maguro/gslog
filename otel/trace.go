@@ -21,7 +21,7 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/options"
 )
@@ -34,7 +34,7 @@ import (
 // The handler gets the span context only from the context of the log call.
 // The record of a log call with no context, such as Logger.Info, has no
 // tracing.  Use a call with a context, such as Logger.InfoContext.
-func WithTracing(projectID string) core.Option {
+func WithTracing(projectID string) gslog.Option {
 	tracePrefix := "projects/" + projectID + "/traces/"
 
 	return func(options *options.Options) {

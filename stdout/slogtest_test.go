@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -70,7 +70,7 @@ func withSlogKeys(m map[string]any) map[string]any {
 	}
 
 	rename(severityKey, slog.LevelKey)
-	rename(core.MessageKey, slog.MessageKey)
+	rename(gslog.MessageKey, slog.MessageKey)
 	rename(timestampKey, slog.TimeKey)
 
 	return m

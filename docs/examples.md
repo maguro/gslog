@@ -120,7 +120,7 @@ import (
 	"os"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -140,7 +140,7 @@ func main() {
 	h := stdout.NewHandler(os.Stdout)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	_ = h.Handle(ctx, newRecord())
 
@@ -168,7 +168,7 @@ import (
 	"os"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/k8s"
 	"m4o.io/gslog/stdout"
 )
@@ -189,7 +189,7 @@ func main() {
 	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("../k8s/testdata/etc/podinfo"))
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	_ = h.Handle(ctx, newRecord())
 
@@ -309,7 +309,7 @@ Output:
 
 ### stdout.NewHandler (withSourceAdded)
 
-With the core.WithSourceAdded() option, stdout.Handler adds the field "logging.googleapis.com/sourceLocation" to the line.  This field is expensive to compute.
+With the gslog.WithSourceAdded() option, stdout.Handler adds the field "logging.googleapis.com/sourceLocation" to the line.  This field is expensive to compute.
 
 ```go
 package main
@@ -323,14 +323,14 @@ import (
 	"runtime"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
 func main() {
 	var buf bytes.Buffer
 
-	h := stdout.NewHandler(&buf, core.WithSourceAdded())
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
 
 	var pcs [1]uintptr
 
@@ -364,7 +364,7 @@ Output:
 
 ### stdout.NewHandler (withReplaceAttr)
 
-With the core.WithReplaceAttr() option, stdout.Handler applies the supplied core.AttrMapper to each non-group attribute before the handler writes the attribute.
+With the gslog.WithReplaceAttr() option, stdout.Handler applies the supplied gslog.AttrMapper to each non-group attribute before the handler writes the attribute.
 
 ```go
 package main
@@ -375,7 +375,7 @@ import (
 	"os"
 	"time"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -391,7 +391,7 @@ func newRecord(attrs ...slog.Attr) slog.Record {
 	return r
 }
 
-// RemovePassword is a core.AttrMapper that elides password attributes.
+// RemovePassword is a gslog.AttrMapper that elides password attributes.
 func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == "password" {
 		return slog.Attr{}
@@ -401,7 +401,7 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 }
 
 func main() {
-	var h slog.Handler = stdout.NewHandler(os.Stdout, core.WithReplaceAttr(RemovePassword))
+	var h slog.Handler = stdout.NewHandler(os.Stdout, gslog.WithReplaceAttr(RemovePassword))
 	h = h.WithGroup("pub")
 	h = h.WithAttrs([]slog.Attr{slog.String("username", "user-12234"), slog.String("password", "hunter2")})
 
@@ -418,7 +418,7 @@ Output:
 
 ### stdout.NewHandler (withLeveler)
 
-With the core.WithLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
+With the gslog.WithLeveler() option, stdout.Handler uses the slog.Leveler to decide whether a log level is enabled.
 
 ```go
 package main
@@ -429,12 +429,12 @@ import (
 	"log/slog"
 	"os"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
 func main() {
-	h := stdout.NewHandler(os.Stdout, core.WithLeveler(slog.LevelError))
+	h := stdout.NewHandler(os.Stdout, gslog.WithLeveler(slog.LevelError))
 
 	ctx := context.Background()
 
@@ -451,7 +451,7 @@ false true
 
 ### stdout.NewHandler (withLogLevelFromEnvVar)
 
-With the core.WithLogLevelFromEnvVar() option, stdout.Handler reads its log level from the environment variable that the key names.
+With the gslog.WithLogLevelFromEnvVar() option, stdout.Handler reads its log level from the environment variable that the key names.
 
 ```go
 package main
@@ -462,7 +462,7 @@ import (
 	"log/slog"
 	"os"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -473,7 +473,7 @@ func main() {
 		_ = os.Unsetenv(envVar)
 	}()
 
-	h := stdout.NewHandler(os.Stdout, core.WithLogLevelFromEnvVar(envVar))
+	h := stdout.NewHandler(os.Stdout, gslog.WithLogLevelFromEnvVar(envVar))
 
 	ctx := context.Background()
 
@@ -490,7 +490,7 @@ false true
 
 ### stdout.NewHandler (withDefaultLeveler)
 
-The core.WithDefaultLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
+The gslog.WithDefaultLeveler() option sets a default log level.  The environment variable is not set, so the default applies.
 
 ```go
 package main
@@ -501,7 +501,7 @@ import (
 	"log/slog"
 	"os"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/stdout"
 )
 
@@ -509,8 +509,8 @@ func main() {
 	const envVar = "FOO_LOG_LEVEL"
 
 	h := stdout.NewHandler(os.Stdout,
-		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLeveler(slog.LevelError),
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelError),
 	)
 
 	ctx := context.Background()
@@ -822,7 +822,7 @@ import (
 
 	"cloud.google.com/go/logging"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -851,7 +851,7 @@ func main() {
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
 	l.Log(ctx, slog.LevelInfo, "How now brown cow?")
 
@@ -882,7 +882,7 @@ import (
 
 	"cloud.google.com/go/logging"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/k8s"
 )
@@ -912,9 +912,9 @@ func main() {
 	l := slog.New(h)
 
 	ctx := context.Background()
-	ctx = core.WithLabels(ctx, core.Label("a", "one"), core.Label("b", "two"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("a", "one"), gslog.Label("b", "two"))
 
-	l.Log(ctx, core.LevelCritical, "Danger, Will Robinson!")
+	l.Log(ctx, gslog.LevelCritical, "Danger, Will Robinson!")
 
 }
 ```
@@ -1045,7 +1045,7 @@ trace: projects/my-project/traces/52fc1643a9381fc674742bb0067101e7 span: d3e9e8c
 
 ### gcp.NewHandler (withSourceAdded)
 
-With the core.WithSourceAdded() option, gcp.Handler adds the SourceLocation field to the logging.Entry.  This field is expensive to compute.
+With the gslog.WithSourceAdded() option, gcp.Handler adds the SourceLocation field to the logging.Entry.  This field is expensive to compute.
 
 ```go
 package main
@@ -1059,7 +1059,7 @@ import (
 	"cloud.google.com/go/logging"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -1078,7 +1078,7 @@ func PrintSourceLocation(e logging.Entry) {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintSourceLocation), core.WithSourceAdded())
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintSourceLocation), gslog.WithSourceAdded())
 	l := slog.New(h)
 
 	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
@@ -1094,7 +1094,7 @@ Output:
 
 ### gcp.NewHandler (withReplaceAttr)
 
-With the core.WithReplaceAttr() option, gcp.Handler applies the supplied core.AttrMapper to each non-group attribute before the handler logs the attribute.
+With the gslog.WithReplaceAttr() option, gcp.Handler applies the supplied gslog.AttrMapper to each non-group attribute before the handler logs the attribute.
 
 ```go
 package main
@@ -1110,7 +1110,7 @@ import (
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -1160,7 +1160,7 @@ func PrintJsonPayload(e logging.Entry) {
 	fmt.Println(string(b))
 }
 
-// RemovePassword is a core.AttrMapper that elides password attributes.
+// RemovePassword is a gslog.AttrMapper that elides password attributes.
 func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == "password" {
 		return slog.Attr{}
@@ -1169,7 +1169,7 @@ func RemovePassword(_ []string, a slog.Attr) slog.Attr {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithReplaceAttr(RemovePassword))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithReplaceAttr(RemovePassword))
 	l := slog.New(h)
 	l = l.WithGroup("pub")
 	l = l.With(slog.String("username", "user-12234"), slog.String("password", string(pw)))
@@ -1187,7 +1187,7 @@ Output:
 
 ### gcp.NewHandler (withLeveler)
 
-With the core.WithLeveler() option, gcp.Handler uses the slog.Leveler to decide whether a log level is enabled.
+With the gslog.WithLeveler() option, gcp.Handler uses the slog.Leveler to decide whether a log level is enabled.
 
 ```go
 package main
@@ -1202,7 +1202,7 @@ import (
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -1218,7 +1218,7 @@ func PrintJsonPayload(e logging.Entry) {
 }
 
 func main() {
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLeveler(slog.LevelError))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLeveler(slog.LevelError))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -1235,7 +1235,7 @@ Output:
 
 ### gcp.NewHandler (withLogLevelFromEnvVar)
 
-With the core.WithLogLevelFromEnvVar() option, gcp.Handler reads its log level from the environment variable that the key names.
+With the gslog.WithLogLevelFromEnvVar() option, gcp.Handler reads its log level from the environment variable that the key names.
 
 ```go
 package main
@@ -1251,7 +1251,7 @@ import (
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -1273,7 +1273,7 @@ func main() {
 		_ = os.Unsetenv(envVar)
 	}()
 
-	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), core.WithLogLevelFromEnvVar(envVar))
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLogLevelFromEnvVar(envVar))
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
@@ -1290,7 +1290,7 @@ Output:
 
 ### gcp.NewHandler (withDefaultLeveler)
 
-The core.WithDefaultLeveler() option sets a default log level.
+The gslog.WithDefaultLeveler() option sets a default log level.
 
 ```go
 package main
@@ -1305,7 +1305,7 @@ import (
 
 	spb "google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 )
 
@@ -1325,8 +1325,8 @@ func main() {
 
 	h := gcp.NewHandler(
 		gcp.LoggerFunc(PrintJsonPayload),
-		core.WithLogLevelFromEnvVar(envVar),
-		core.WithDefaultLeveler(slog.LevelError),
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelError),
 	)
 	l := slog.New(h)
 

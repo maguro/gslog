@@ -35,7 +35,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"m4o.io/gslog/core"
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/internal/attr"
 	"m4o.io/gslog/internal/options"
@@ -227,7 +227,7 @@ func TestDefaultHandle(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := &Got{}
-			var h slog.Handler = gcp.NewHandler(got, core.WithDefaultLeveler(slog.LevelInfo))
+			var h slog.Handler = gcp.NewHandler(got, gslog.WithDefaultLeveler(slog.LevelInfo))
 			if test.with != nil {
 				h = test.with(h)
 			}
@@ -264,7 +264,7 @@ func TestConcurrentWrites(t *testing.T) {
 				s2Count++
 			}
 		}),
-		core.WithDefaultLeveler(slog.LevelInfo))
+		gslog.WithDefaultLeveler(slog.LevelInfo))
 
 	sub1 := h.WithAttrs([]slog.Attr{slog.Bool("sub1", true)})
 	sub2 := h.WithAttrs([]slog.Attr{slog.Bool("sub2", true)})
@@ -313,7 +313,7 @@ func TestConcurrentGroupMapper(t *testing.T) {
 		return a
 	}
 
-	h := gcp.NewHandler(gcp.LoggerFunc(func(logging.Entry) {}), core.WithReplaceAttr(mapper))
+	h := gcp.NewHandler(gcp.LoggerFunc(func(logging.Entry) {}), gslog.WithReplaceAttr(mapper))
 	l := slog.New(h).WithGroup("a").WithGroup("b").WithGroup("c")
 
 	var wg sync.WaitGroup
@@ -473,7 +473,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 		},
 		{
 			name:    "remove built-in",
-			replace: removeKeys(core.MessageKey),
+			replace: removeKeys(gslog.MessageKey),
 			attrs:   attrs,
 			want: func() logging.Entry {
 				p := &structpb.Struct{Fields: make(map[string]*structpb.Value)}
@@ -489,7 +489,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 		},
 		{
 			name:    "preformatted remove built-in",
-			replace: removeKeys(core.MessageKey),
+			replace: removeKeys(gslog.MessageKey),
 			with:    func(h slog.Handler) slog.Handler { return h.WithAttrs(preAttrs) },
 			attrs:   attrs,
 			want: func() logging.Entry {
@@ -992,7 +992,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				return h.WithGroup("g").WithAttrs([]slog.Attr{slog.Int("a", 1)}).WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(core.MessageKey, "a")(groups, attr)
+				return removeKeys(gslog.MessageKey, "a")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1018,7 +1018,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				return h.WithGroup("g").WithAttrs([]slog.Attr{slog.Int("a", 1)}).WithAttrs([]slog.Attr{slog.Int("n", 4)}).WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(core.MessageKey, "a", "b")(groups, attr)
+				return removeKeys(gslog.MessageKey, "a", "b")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1048,7 +1048,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 					WithGroup("h").WithAttrs([]slog.Attr{slog.Int("b", 2)})
 			},
 			replace: func(groups []string, attr slog.Attr) slog.Attr {
-				return removeKeys(core.MessageKey, "a", "c")(groups, attr)
+				return removeKeys(gslog.MessageKey, "a", "c")(groups, attr)
 			},
 			attrs: []slog.Attr{slog.Group("i", slog.Int("c", 3))},
 			want: func() logging.Entry {
@@ -1074,7 +1074,7 @@ func TestJSONAndTextHandlers(t *testing.T) {
 				if a.Value.Kind() == slog.KindGroup {
 					return slog.Attr{Key: "bad", Value: slog.IntValue(1)}
 				}
-				return removeKeys(core.MessageKey)(groups, a)
+				return removeKeys(gslog.MessageKey)(groups, a)
 			},
 			attrs: []slog.Attr{slog.Any("name", logValueName{"Perry", "Platypus"})},
 			want: func() logging.Entry {
@@ -1098,12 +1098,12 @@ func TestJSONAndTextHandlers(t *testing.T) {
 			r.AddAttrs(test.attrs...)
 
 			opts := []options.OptionProcessor{
-				core.WithReplaceAttr(test.replace),
-				core.WithDefaultLeveler(slog.LevelInfo),
+				gslog.WithReplaceAttr(test.replace),
+				gslog.WithDefaultLeveler(slog.LevelInfo),
 			}
 
 			if test.addSource != nil {
-				opts = append(opts, core.WithSourceAdded())
+				opts = append(opts, gslog.WithSourceAdded())
 			}
 
 			got := &Got{}
@@ -1201,7 +1201,7 @@ func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 	}
 
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithReplaceAttr(redact), otel.WithBaggage())
+	h := gcp.NewHandler(got, gslog.WithReplaceAttr(redact), otel.WithBaggage())
 
 	bag := otel.MustParse("email=jan@example.com")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
@@ -1218,7 +1218,7 @@ func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 // gets no source location.
 func TestWithSourceAdded_noPC(t *testing.T) {
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithSourceAdded())
+	h := gcp.NewHandler(got, gslog.WithSourceAdded())
 
 	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
@@ -1228,7 +1228,7 @@ func TestWithSourceAdded_noPC(t *testing.T) {
 
 func TestWithLeveler(t *testing.T) {
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, gslog.WithLeveler(slog.LevelInfo))
 
 	l := slog.New(h.WithLeveler(slog.LevelError))
 
@@ -1270,7 +1270,7 @@ func TestWithGroupSiblingsDoNotAlias(t *testing.T) {
 
 func TestLevelCritical(t *testing.T) {
 	got := &Got{}
-	h := gcp.NewHandler(got, core.WithLeveler(slog.LevelInfo))
+	h := gcp.NewHandler(got, gslog.WithLeveler(slog.LevelInfo))
 	l := slog.New(h)
 
 	l.Info("How now brown cow")
@@ -1280,7 +1280,7 @@ func TestLevelCritical(t *testing.T) {
 
 	got.LogEntry = logging.Entry{}
 
-	l.Log(context.Background(), core.LevelCritical, "Ouch!")
+	l.Log(context.Background(), gslog.LevelCritical, "Ouch!")
 	assert.Nil(t, got.LogEntry.Payload)
 	assert.NotNil(t, got.SyncLogEntry.Payload)
 }
