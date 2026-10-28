@@ -145,6 +145,21 @@ func TestHandler_agentKeyGroupIsNotWritten(t *testing.T) {
 	assert.Equal(t, 1.0, got["top"])
 }
 
+// TestHandler_groupReplacesAttrWithSameKey verifies that a group takes the
+// key of an earlier attribute at the same level, as in the gcp handler.
+func TestHandler_groupReplacesAttrWithSameKey(t *testing.T) {
+	var buf bytes.Buffer
+
+	slog.New(stdout.NewHandler(&buf)).With("a", 1, "b", 2).WithGroup("a").Info("hello", "n", 1)
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"a":`))
+
+	got := decodeLine(t, &buf)
+
+	assert.Equal(t, map[string]any{"n": 1.0}, got["a"])
+	assert.Equal(t, 2.0, got["b"])
+}
+
 func TestHandler_messageKeyIsNotDuplicated(t *testing.T) {
 	var buf bytes.Buffer
 

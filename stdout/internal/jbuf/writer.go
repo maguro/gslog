@@ -15,6 +15,7 @@
 package jbuf
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"strconv"
@@ -365,6 +366,111 @@ func (w *Writer) openPending() {
 	}
 
 	w.pending = w.pending[:0]
+}
+
+// RemoveMember returns the serialized members without each member that has
+// the key.  RemoveMember returns members unchanged when no member has the
+// key, and does not change members.
+func RemoveMember(members []byte, key string) []byte {
+	want := appendKey(nil, key)
+
+	for start := 0; start < len(members); {
+		end := memberEnd(members, start)
+
+		if bytes.HasPrefix(members[start:], want) {
+			members = cutMember(members, start, end)
+
+			continue
+		}
+
+		start = end + 1 // the comma
+	}
+
+	return members
+}
+
+// memberEnd returns the index after the value of the member that starts at
+// start.
+func memberEnd(members []byte, start int) int {
+	colon := skipString(members, start)
+
+	return skipValue(members, colon+1)
+}
+
+// skipString returns the index after the JSON string that starts at i.
+func skipString(b []byte, i int) int {
+	for i++; i < len(b); i++ {
+		switch b[i] {
+		case '\\':
+			i++
+		case '"':
+			return i + 1
+		}
+	}
+
+	return len(b)
+}
+
+// skipValue returns the index after the JSON value that starts at i.  A value
+// ends at the next comma, or at the close of its object or array.
+func skipValue(b []byte, i int) int {
+	if i >= len(b) {
+		return i
+	}
+
+	switch b[i] {
+	case '"':
+		return skipString(b, i)
+	case '{', '[':
+		return skipNested(b, i)
+	default:
+		for i < len(b) && b[i] != ',' {
+			i++
+		}
+
+		return i
+	}
+}
+
+// skipNested returns the index after the object or array that starts at i.
+func skipNested(b []byte, i int) int {
+	depth := 0
+
+	for i < len(b) {
+		switch b[i] {
+		case '"':
+			i = skipString(b, i)
+
+			continue
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		}
+
+		i++
+	}
+
+	return len(b)
+}
+
+// cutMember returns a copy of members without the member at members[start:end]
+// and the comma that separates it from its neighbor.
+func cutMember(members []byte, start, end int) []byte {
+	switch {
+	case end < len(members):
+		end++ // the comma after the member
+	case start > 0:
+		start-- // the comma before the last member
+	}
+
+	cut := make([]byte, 0, len(members)-(end-start))
+	cut = append(cut, members[:start]...)
+
+	return append(cut, members[end:]...)
 }
 
 // JoinMembers returns the serialized members of a followed by the serialized

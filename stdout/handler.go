@@ -171,13 +171,19 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 // WithGroup returns a copy of the handler.  The groups of the copy are the
-// groups of h followed by name.
+// groups of h followed by name.  The group replaces an attribute of h that
+// has the same key at that level, because a JSON object cannot hold two
+// members with one key, and the gcp handler, whose payload is a map, keeps
+// the group.
 func (h *Handler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
 	}
 
+	depth := len(h.groups)
+
 	handler2 := h.clone()
+	handler2.prefix[depth] = jbuf.RemoveMember(h.prefix[depth], name)
 	handler2.groups = append(handler2.groups, name)
 	handler2.prefix = append(handler2.prefix, nil)
 

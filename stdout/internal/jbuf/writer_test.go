@@ -30,6 +30,38 @@ func (failingMarshaler) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("no JSON form")
 }
 
+func TestRemoveMember(t *testing.T) {
+	tests := map[string]struct {
+		members string
+		key     string
+		want    string
+	}{
+		"first":              {`"a":1,"b":2`, "a", `"b":2`},
+		"middle":             {`"a":1,"b":2,"c":3`, "b", `"a":1,"c":3`},
+		"last":               {`"a":1,"b":2`, "b", `"a":1`},
+		"only":               {`"a":1`, "a", ``},
+		"absent":             {`"a":1,"b":2`, "c", `"a":1,"b":2`},
+		"prefix of a key":    {`"ab":1,"a":2`, "a", `"ab":1`},
+		"object value":       {`"a":{"x":1,"y":{"z":[1,2]}},"b":2`, "a", `"b":2`},
+		"array value":        {`"a":[1,{"x":"}"}],"b":2`, "a", `"b":2`},
+		"string with escape": {`"a":"x\",y","b":2`, "a", `"b":2`},
+		"string with comma":  {`"a":"x,y","b":2`, "a", `"b":2`},
+		"repeated key":       {`"a":1,"b":2,"a":3`, "a", `"b":2`},
+		"empty":              {``, "a", ``},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			members := []byte(tc.members)
+
+			got := RemoveMember(members, tc.key)
+
+			assert.Equal(t, tc.want, string(got))
+			assert.Equal(t, tc.members, string(members), "RemoveMember must not change its argument")
+		})
+	}
+}
+
 func TestWriter_AppendAnyAttr(t *testing.T) {
 	type point struct {
 		X, Y int
