@@ -55,6 +55,10 @@ func (lp LabelPair) LogValue() slog.Value {
 // makes with that context.  A supplied label with the same key as a label of
 // ctx replaces the label of ctx.  WithLabels panics if a label pair is the
 // zero LabelPair.
+//
+// A context holds at most 64 labels.  When the context already has 64
+// labels, WithLabels drops a label with a new key and logs an error with the
+// default slog.Logger.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	parent := entry.LabelsFrom(ctx)
 	labels := make(map[string]string, len(parent)+len(labelPairs))
@@ -66,7 +70,8 @@ func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 			panic("invalid label passed to WithLabels()")
 		}
 
-		if len(labels) >= maxLabels {
+		_, replaces := labels[labelPair.key]
+		if !replaces && len(labels) >= maxLabels {
 			slog.Error("Too many labels", "ignored", labelPair)
 
 			continue

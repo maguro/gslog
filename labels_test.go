@@ -98,6 +98,19 @@ var _ = Describe("labels", func() {
 			Ω(labels).Should(HaveKeyWithValue("how", "now"))
 			Ω(labels).Should(HaveKeyWithValue("brown", "cow"))
 		})
+
+		Context("and an existing label replaced", func() {
+			BeforeEach(func() {
+				ctx = gslog.WithLabels(ctx, gslog.Label("how", "then"))
+			})
+
+			It("the replacement is kept", func() {
+				labels := gslog.LabelsFrom(ctx)
+
+				Ω(labels).Should(HaveLen(64))
+				Ω(labels).Should(HaveKeyWithValue("how", "then"))
+			})
+		})
 	})
 })
 
