@@ -3,7 +3,7 @@ GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 GOVULNCHECK_VERSION := v1.9.0
 
 EXAMPLES_DOC := docs/examples.md
-EXAMPLE_PACKAGES := stdout gcp otel
+EXAMPLE_PACKAGES := . stdout gcp otel otel/detect k8s errorreporting
 
 .PHONY: all build test coverage lint fmt check-fmt vuln docs check-docs tidy clean check ci
 

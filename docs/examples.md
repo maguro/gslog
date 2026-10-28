@@ -7,6 +7,320 @@ program. `go test` runs each example that shows an output. Then it
 compares the output of the example with the output below the program. Run
 `make docs` to update this file.
 
+## m4o.io/gslog
+
+Package gslog contains the options, labels, and levels that the gslog handlers for Google Cloud Logging share.
+
+The handlers are in the packages gcp and stdout.  This package and its dependencies import no module outside the standard library.  A program that uses only the stdout handler imports the packages gslog and stdout, and imports no client library.
+
+### gslog
+
+The options and the labels of this package apply to both handlers.  The example sets the default level of a stdout handler and adds a label from the context to a record.  The handler writes the record as one line of JSON.  A fixed time keeps the timestamp of the output the same on each run.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, gslog.WithDefaultLeveler(slog.LevelDebug))
+
+	ctx := context.Background()
+	ctx = gslog.WithLabels(ctx, gslog.Label("tenant", "acme"))
+
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+	r := slog.NewRecord(at, slog.LevelDebug, "How now brown cow?", 0)
+	r.AddAttrs(slog.String("animal", "cow"))
+
+	_ = h.Handle(ctx, r)
+
+}
+```
+
+Output:
+
+```text
+{"severity":"DEBUG","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"tenant":"acme"},"animal":"cow"}
+```
+
+### gslog.WithLeveler
+
+A program can change its log level while it runs, for example from an admin endpoint.  WithLeveler takes a slog.Leveler.  With a \*slog.LevelVar, the handler reads the variable for each record.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	var level slog.LevelVar
+	level.Set(slog.LevelInfo)
+
+	h := stdout.NewHandler(os.Stdout, gslog.WithLeveler(&level))
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelDebug))
+
+	level.Set(slog.LevelDebug)
+
+	fmt.Println(h.Enabled(ctx, slog.LevelDebug))
+
+}
+```
+
+Output:
+
+```text
+false
+true
+```
+
+### gslog.WithLogLevelFromEnvVar
+
+A deployment sets the log level in an environment variable.  The program needs no change.  The value can be a level of Google Cloud Logging, such as "notice".  The case of the value is not important.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	const envVar = "FOO_LOG_LEVEL"
+	_ = os.Setenv(envVar, "notice")
+	defer func() {
+		_ = os.Unsetenv(envVar)
+	}()
+
+	h := stdout.NewHandler(os.Stdout, gslog.WithLogLevelFromEnvVar(envVar))
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, gslog.LevelNotice))
+
+}
+```
+
+Output:
+
+```text
+false true
+```
+
+### gslog.WithDefaultLeveler
+
+The program sets the default level for a deployment that does not set the environment variable.  A deployment that sets the variable overrides the default.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	const envVar = "FOO_LOG_LEVEL"
+	_ = os.Unsetenv(envVar)
+
+	h := stdout.NewHandler(os.Stdout,
+		gslog.WithLogLevelFromEnvVar(envVar),
+		gslog.WithDefaultLeveler(slog.LevelWarn),
+	)
+
+	ctx := context.Background()
+
+	fmt.Println(h.Enabled(ctx, slog.LevelInfo), h.Enabled(ctx, slog.LevelWarn))
+
+}
+```
+
+Output:
+
+```text
+false true
+```
+
+### gslog.WithSourceAdded
+
+The Logs Explorer shows the file and the line of the log call when the entry has a source location.  The stdout handler writes the location in the field "logging.googleapis.com/sourceLocation".
+
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"path/filepath"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	var buf bytes.Buffer
+
+	h := stdout.NewHandler(&buf, gslog.WithSourceAdded())
+	logger := slog.New(h)
+
+	logger.Info("How now brown cow?")
+
+	// The timestamp is different on each run.  The line changes with each
+	// edit of this file.  The example prints the name of the file and the
+	// function.
+	var line map[string]any
+
+	_ = json.Unmarshal(buf.Bytes(), &line)
+
+	loc, _ := line["logging.googleapis.com/sourceLocation"].(map[string]any)
+	file, _ := loc["file"].(string)
+	base := filepath.Base(file)
+
+	fmt.Println(base, loc["function"])
+
+}
+```
+
+Output:
+
+```text
+example_test.go m4o.io/gslog_test.ExampleWithSourceAdded
+```
+
+### gslog.WithReplaceAttr
+
+A mapper keeps a secret out of the log.  The handler calls the mapper for each attribute, also for an attribute inside a group.  The first argument of the mapper holds the groups of the attribute, from the outer group to the inner group.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+// redactPassword is a gslog.AttrMapper that replaces the value of each
+// attribute with the key "password".
+func redactPassword(_ []string, a slog.Attr) slog.Attr {
+	if a.Key == "password" {
+		return slog.String(a.Key, "REDACTED")
+	}
+
+	return a
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, gslog.WithReplaceAttr(redactPassword))
+
+	auth := slog.Group("auth", slog.String("user", "jan"), slog.String("password", "hunter2"))
+	r := newRecord(auth)
+
+	_ = h.Handle(context.Background(), r)
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","auth":{"user":"jan","password":"REDACTED"}}
+```
+
+### gslog.WithLabels
+
+One call adds the labels of a tenant to the context.  A later call adds a label for one operation.  The entries of that operation have the labels of both calls.  The handler writes the labels in key order.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/stdout"
+)
+
+// newRecord returns an Info record with a fixed time and the message "How
+// now brown cow?".  A fixed time keeps the timestamp of the example output
+// the same on each run.
+func newRecord(attrs ...slog.Attr) slog.Record {
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+	r.AddAttrs(attrs...)
+
+	return r
+}
+
+func main() {
+	h := stdout.NewHandler(os.Stdout)
+
+	ctx := context.Background()
+	ctx = gslog.WithLabels(ctx, gslog.Label("tenant", "acme"), gslog.Label("region", "eu"))
+	ctx = gslog.WithLabels(ctx, gslog.Label("operation", "checkout"))
+
+	_ = h.Handle(ctx, newRecord())
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"operation":"checkout","region":"eu","tenant":"acme"}}
+```
+
 ## m4o.io/gslog/stdout
 
 Package stdout contains a slog.Handler that writes each log record to a writer as one line of JSON.  The line has the structured logging format that the Google Cloud logging agent reads.
@@ -1691,4 +2005,140 @@ Output:
 
 ```text
 {"severity":"INFO","message":"Report started","timestamp":"2024-01-02T03:04:05Z","otel-baggage/job":"nightly-report","otel-baggage/tenant":"acme"}
+```
+
+## m4o.io/gslog/otel/detect
+
+Package detect contains an option that includes OpenTelemetry tracing with a project ID from the environment of the process.
+
+### detect.WithTracing
+
+A service on Google Cloud gets its project ID from the metadata server. The program then needs no configuration for the trace prefix.  Off Google Cloud, the environment variable GOOGLE\_CLOUD\_PROJECT gives the project ID. The example has no output, because the project ID depends on the environment of the process.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+
+	"go.opentelemetry.io/otel/trace"
+
+	"m4o.io/gslog/otel/detect"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, detect.WithTracing())
+	logger := slog.New(h)
+
+	traceID, _ := trace.TraceIDFromHex("52fc1643a9381fc674742bb0067101e7")
+	spanID, _ := trace.SpanIDFromHex("d3e9e8c51cb190df")
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+
+	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
+
+	logger.InfoContext(ctx, "How now brown cow?")
+}
+```
+
+## m4o.io/gslog/k8s
+
+Package k8s contains options that include labels from the Kubernetes Downward API podinfo labels file in logging records.
+
+The options are in a separate package.  Because of this, a module that does not need labels from the Kubernetes Downward API has fewer dependencies.
+
+### k8s.WithPodinfoLabels
+
+In a Pod, a volume of the Downward API holds the labels file.  The option takes the directory of the volume.  Each entry then has the labels of the Pod.  The example uses the labels file in the testdata directory.  The handler adds the prefix "k8s-pod/" to each label.  The handler writes the labels in key order.  A fixed time keeps the timestamp of the output the same on each run.
+
+```go
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"time"
+
+	"m4o.io/gslog/k8s"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	h := stdout.NewHandler(os.Stdout, k8s.WithPodinfoLabels("testdata/etc/podinfo"))
+
+	at := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+	r := slog.NewRecord(at, slog.LevelInfo, "How now brown cow?", 0)
+
+	_ = h.Handle(context.Background(), r)
+
+}
+```
+
+Output:
+
+```text
+{"severity":"INFO","message":"How now brown cow?","timestamp":"2024-01-02T03:04:05Z","logging.googleapis.com/labels":{"k8s-pod/app":"hello-world","k8s-pod/environment":"stg","k8s-pod/tier":"backend","k8s-pod/track":"stable"}}
+```
+
+## m4o.io/gslog/errorreporting
+
+Package errorreporting contains an option for Google Cloud Error Reporting. The option causes the handler to write the fields that Error Reporting reads.  The handler writes the fields in each record at level Error or higher.  The package imports no module outside the standard library.
+
+### errorreporting.WithService
+
+Error Reporting reads an entry that has the fields of a ReportedErrorEvent. The handler writes these fields in each record at level Error or higher. The Info record has no report fields.  The Error record has the type, the service context, and a stack trace.
+
+```go
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"strings"
+
+	"m4o.io/gslog/errorreporting"
+	"m4o.io/gslog/stdout"
+)
+
+func main() {
+	var buf bytes.Buffer
+
+	h := stdout.NewHandler(&buf, errorreporting.WithService("checkout", "v1.2.0"))
+	logger := slog.New(h)
+
+	logger.Info("Payment started")
+	logger.Error("Payment failed")
+
+	// The timestamp and the stack trace are different on each run.  The
+	// example removes these two fields and prints the rest of each line.
+	for line := range strings.Lines(buf.String()) {
+		var fields map[string]any
+
+		_ = json.Unmarshal([]byte(line), &fields)
+
+		delete(fields, "timestamp")
+		delete(fields, "stack_trace")
+
+		b, _ := json.Marshal(fields)
+
+		fmt.Println(string(b))
+	}
+
+}
+```
+
+Output:
+
+```text
+{"message":"Payment started","severity":"INFO"}
+{"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","message":"Payment failed","serviceContext":{"service":"checkout","version":"v1.2.0"},"severity":"ERROR"}
 ```

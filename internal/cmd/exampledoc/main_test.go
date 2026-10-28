@@ -21,6 +21,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestImportPath(t *testing.T) {
+	tests := []struct {
+		dir  string
+		want string
+	}{
+		{".", "m4o.io/gslog"},
+		{"stdout", "m4o.io/gslog/stdout"},
+		{"./otel/detect", "m4o.io/gslog/otel/detect"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.dir, func(t *testing.T) {
+			assert.Equal(t, tt.want, importPath("m4o.io/gslog", tt.dir))
+		})
+	}
+}
+
 func TestTitle(t *testing.T) {
 	tests := []struct {
 		name string

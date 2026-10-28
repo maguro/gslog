@@ -150,6 +150,8 @@ gslog has two handlers. Both handlers make the same Google Cloud Logging
 - `errorreporting` holds the option that causes the handler to write the
   fields that Google Cloud Error Reporting reads.
 
+The [examples](docs/examples.md) show each package in complete programs.
+
 The `gcp` handler fills the GCL entry, `logging.Entry`, directly. The handler
 gets the information from the `context.Context`, the `slog.Record`, and the
 state of the handler itself. The handler sets `logging.Entry.Payload` to a
@@ -303,8 +305,7 @@ options from the `gslog` package:
 | `k8s.WithPodinfoLabels(root)`          |      `string`      | Causes the handler to include labels from the [Kubernetes Downward API](https://kubernetes.io/docs/concepts/workloads/pods/downward-api/) podinfo `labels` file. The handler expects the labels file in the directory that root specifies. The file must be named "labels", as the Kubernetes Downward API for Pods specifies. |
 | `errorreporting.WithService(service, version)` | `string`, `string` | Causes the handler to include the fields that [Google Cloud Error Reporting](https://cloud.google.com/error-reporting/docs/formatting-error-messages) reads in each record at level Error or higher: the `@type` of a `ReportedErrorEvent`, the `serviceContext`, and a `stack_trace`. The stack trace is the stack of the log call. |
 
-The [examples](docs/examples.md) show the options of the `gslog`, `otel`,
-`k8s`, and `errorreporting` packages in complete programs, with their output.
+Each option in the table has an example in [docs/examples.md](docs/examples.md).
 
 ## Design Notes
 

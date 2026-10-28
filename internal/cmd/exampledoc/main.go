@@ -142,10 +142,10 @@ func renderPackage(buf *bytes.Buffer, module, dir string) error {
 		return cmp.Compare(a.Code.Pos(), b.Code.Pos())
 	})
 
-	importPath := module + "/" + filepath.ToSlash(filepath.Clean(dir))
+	pkgPath := importPath(module, dir)
 	synopsis := markdown(pkgDoc)
 
-	fmt.Fprintf(buf, "\n## %s\n\n%s", importPath, synopsis)
+	fmt.Fprintf(buf, "\n## %s\n\n%s", pkgPath, synopsis)
 
 	for _, ex := range examples {
 		err = renderExample(buf, fset, name, ex)
@@ -232,6 +232,17 @@ func parseDir(fset *token.FileSet, dir string) (name, pkgDoc string, tests []*as
 	}
 
 	return pkg.Name, pkgDoc, tests, nil
+}
+
+// importPath returns the import path of the package in dir.  dir is relative
+// to the directory of the module.  The import path of "." is the module path.
+func importPath(module, dir string) string {
+	dir = filepath.ToSlash(filepath.Clean(dir))
+	if dir == "." {
+		return module
+	}
+
+	return module + "/" + dir
 }
 
 // title returns the heading of ex, such as "stdout.NewHandler
