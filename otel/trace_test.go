@@ -71,3 +71,9 @@ func TestWithTracing(t *testing.T) {
 	assert.Equal(t, spanID.String(), e.SpanID)
 	assert.True(t, e.TraceSampled)
 }
+
+func TestWithTracing_EmptyProjectID(t *testing.T) {
+	assert.Panics(t, func() {
+		otel.WithTracing("")
+	})
+}
