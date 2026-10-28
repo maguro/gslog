@@ -36,7 +36,9 @@ const (
 
 // WithBaggage returns a gslog option that causes the handler to include
 // OpenTelemetry baggage.  The handler gets the baggage.Baggage from the
-// context, if the context has one, and adds the baggage as attributes.
+// context, if the context has one, and adds the baggage as attributes.  If
+// the options have more than one WithBaggage option, the handler adds the
+// baggage once.
 //
 // The handler adds the prefix "otel-baggage/" to each baggage key.  The
 // prefix makes collisions with other log attributes less likely.  The
@@ -66,7 +68,7 @@ const (
 //	)
 func WithBaggage() gslog.Option {
 	return func(options *options.Options) {
-		options.EntryAugmentors = append(options.EntryAugmentors, addBaggage)
+		options.AddAugmentor("otel.WithBaggage", addBaggage)
 	}
 }
 

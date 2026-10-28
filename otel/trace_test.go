@@ -77,3 +77,19 @@ func TestWithTracing_EmptyProjectID(t *testing.T) {
 		otel.WithTracing("")
 	})
 }
+
+func TestWithTracing_repeated(t *testing.T) {
+	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
+	sCtx := trace.NewSpanContext(trace.SpanContextConfig{TraceID: traceID})
+
+	ctx := context.Background()
+	ctx = trace.ContextWithRemoteSpanContext(ctx, sCtx)
+
+	got := &Got{}
+	h := gcp.NewHandler(got, otel.WithTracing("first"), otel.WithTracing("second"))
+	l := slog.New(h)
+
+	l.Log(ctx, slog.LevelInfo, "how now brown cow")
+
+	assert.Equal(t, "projects/second/traces/"+traceID.String(), got.LogEntry.Trace)
+}

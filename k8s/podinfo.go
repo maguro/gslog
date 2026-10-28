@@ -43,12 +43,16 @@ const (
 // labels from the Kubernetes Downward API podinfo labels file.  The handler
 // expects the labels file in the directory that root specifies.  The file
 // must be named "labels", as the Kubernetes Downward API for Pods specifies.
+// If the options have more than one WithPodinfoLabels option, the handler
+// uses the last WithPodinfoLabels option.
 //
 // The handler adds the prefix "k8s-pod/" to each label.  This follows the
 // Google Cloud Logging conventions for Kubernetes Pod labels.
 func WithPodinfoLabels(root string) gslog.Option {
 	return func(options *options.Options) {
-		options.EntryAugmentors = append(options.EntryAugmentors, podinfoAugmentor(root))
+		augment := podinfoAugmentor(root)
+
+		options.AddAugmentor("k8s.WithPodinfoLabels", augment)
 	}
 }
 

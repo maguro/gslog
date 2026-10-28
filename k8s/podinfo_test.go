@@ -111,4 +111,28 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 				Ω(e.Labels).Should(BeEmpty())
 			})
 	})
+
+	When("the options have two WithPodinfoLabels options", func() {
+		BeforeEach(func() {
+			root = "testdata/etc/podinfo"
+		})
+
+		JustBeforeEach(func() {
+			k8s.WithPodinfoLabels("testdata/edge/podinfo")(o)
+		})
+
+		It("the handler uses the last option",
+			func() {
+				e := &entry.Entry{}
+				for _, a := range o.EntryAugmentors {
+					a(ctx, e)
+				}
+
+				Ω(o.EntryAugmentors).Should(HaveLen(1))
+				Ω(e.Labels).Should(MatchAllKeys(Keys{
+					k8s.PodPrefix + "app":   Equal("hello-world"),
+					k8s.PodPrefix + "empty": Equal(""),
+				}))
+			})
+	})
 })

@@ -15,8 +15,10 @@
 package otel_test
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,9 +26,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	spb "google.golang.org/protobuf/types/known/structpb"
 
+	"m4o.io/gslog"
 	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/internal/attr"
 	"m4o.io/gslog/otel"
+	"m4o.io/gslog/stdout"
 )
 
 func TestWithBaggage(t *testing.T) {
@@ -140,4 +144,20 @@ func TestWithBaggage(t *testing.T) {
 			assert.True(t, proto.Equal(expected, e.Payload.(proto.Message)))
 		})
 	}
+}
+
+func TestWithBaggage_repeated(t *testing.T) {
+	var buf bytes.Buffer
+
+	opts := []gslog.Option{otel.WithBaggage(), otel.WithBaggage()}
+	h := stdout.NewHandler(&buf, opts...)
+	l := slog.New(h)
+
+	b := otel.MustParse("a=one")
+	ctx := context.Background()
+	ctx = baggage.ContextWithBaggage(ctx, b)
+
+	l.Log(ctx, slog.LevelInfo, "how now brown cow")
+
+	assert.Equal(t, 1, strings.Count(buf.String(), `"otel-baggage/a"`))
 }

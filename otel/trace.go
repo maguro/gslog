@@ -30,7 +30,8 @@ import (
 // OpenTelemetry tracing.  The handler gets the tracing information from the
 // trace.SpanContext in the context, if the context has one.  projectID is the
 // ID of the project that holds the traces.  WithTracing panics if projectID
-// is empty.
+// is empty.  If the options have more than one WithTracing option, the
+// handler uses the last WithTracing option.
 //
 // The handler gets the span context only from the context of the log call.
 // The record of a log call with no context, such as Logger.Info, has no
@@ -43,7 +44,7 @@ func WithTracing(projectID string) gslog.Option {
 	tracePrefix := "projects/" + projectID + "/traces/"
 
 	return func(options *options.Options) {
-		options.EntryAugmentors = append(options.EntryAugmentors,
+		options.AddAugmentor("otel.WithTracing",
 			func(ctx context.Context, e *entry.Entry) {
 				spanContext := trace.SpanContextFromContext(ctx)
 

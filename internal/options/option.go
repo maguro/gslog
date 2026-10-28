@@ -19,6 +19,7 @@ package options
 
 import (
 	"log/slog"
+	"slices"
 
 	"m4o.io/gslog/internal/entry"
 )
@@ -33,7 +34,11 @@ type Options struct {
 	EnvVarLogLevel   slog.Leveler
 	DefaultLogLevel  slog.Leveler
 
+	// EntryAugmentors holds the augmentors in the order that AddAugmentor
+	// added them.  augmentorKeys holds the key of the augmentor at the same
+	// index.
 	EntryAugmentors []entry.Augmentor
+	augmentorKeys   []string
 
 	// ErrorReporter gives the error report for a record.  The handler
 	// writes no error report when ErrorReporter is nil.
@@ -55,6 +60,21 @@ type Options struct {
 	// the attribute.  gslog.AttrMapper describes the calls that the handler
 	// makes.
 	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
+}
+
+// AddAugmentor adds the augmentor of the option that key names.  If the
+// options already have an augmentor with the same key, AddAugmentor replaces
+// that augmentor in its position.
+func (o *Options) AddAugmentor(key string, augment entry.Augmentor) {
+	i := slices.Index(o.augmentorKeys, key)
+	if i >= 0 {
+		o.EntryAugmentors[i] = augment
+
+		return
+	}
+
+	o.augmentorKeys = append(o.augmentorKeys, key)
+	o.EntryAugmentors = append(o.EntryAugmentors, augment)
 }
 
 // ApplyOptions applies the options to an instance of Options.  ApplyOptions
