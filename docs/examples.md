@@ -1397,6 +1397,100 @@ Output:
 {"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
 ```
 
+### gcp.LoggerFunc
+
+A test receives the entries of the handler with LoggerFunc in place of a logging.Logger.  The example prints the severity and the message of each entry.
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"cloud.google.com/go/logging"
+
+	spb "google.golang.org/protobuf/types/known/structpb"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/gcp"
+)
+
+func main() {
+	printEntry := func(e logging.Entry) {
+		payload := e.Payload.(*spb.Struct).AsMap()
+
+		fmt.Println(e.Severity, payload["message"])
+	}
+
+	h := gcp.NewHandler(gcp.LoggerFunc(printEntry))
+	l := slog.New(h)
+
+	l.Info("How now brown cow?")
+	l.Log(context.Background(), gslog.LevelNotice, "The rain in Spain lies mainly on the plane.")
+
+}
+```
+
+Output:
+
+```text
+Info How now brown cow?
+Notice The rain in Spain lies mainly on the plane.
+```
+
+### gcp.Handler.WithLeveler
+
+One component of a program can log at a lower level than the rest.  The copy from WithLeveler shares the logger of the handler, so the entries of both go to the same log.
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+
+	"cloud.google.com/go/logging"
+	"google.golang.org/protobuf/encoding/protojson"
+
+	spb "google.golang.org/protobuf/types/known/structpb"
+
+	"m4o.io/gslog"
+	"m4o.io/gslog/gcp"
+)
+
+// PrintJsonPayload is a gcp.Logger stub that prints the logging.Entry
+// Payload field as a JSON string.
+func PrintJsonPayload(e logging.Entry) {
+	b, _ := protojson.Marshal(e.Payload.(*spb.Struct))
+
+	var j map[string]any
+	_ = json.Unmarshal(b, &j)
+	b, _ = json.Marshal(j)
+	fmt.Println(string(b))
+}
+
+func main() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLeveler(slog.LevelInfo))
+	verbose := h.WithLeveler(slog.LevelDebug)
+
+	checkout := slog.New(h)
+	payments := slog.New(verbose)
+
+	checkout.Debug("Cart loaded")
+	payments.Debug("Card authorized")
+
+}
+```
+
+Output:
+
+```text
+{"message":"Card authorized"}
+```
+
 ## m4o.io/gslog/otel
 
 Package otel contains options that include OpenTelemetry baggage and tracing in logging records.

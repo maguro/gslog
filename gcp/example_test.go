@@ -366,3 +366,40 @@ func ExampleNewHandler_withErrorReporting() {
 
 	// Output: {"@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","serviceContext":{"service":"checkout","version":"v1.2.0"}}
 }
+
+// A test receives the entries of the handler with LoggerFunc in place of a
+// logging.Logger.  The example prints the severity and the message of each
+// entry.
+func ExampleLoggerFunc() {
+	printEntry := func(e logging.Entry) {
+		payload := e.Payload.(*spb.Struct).AsMap()
+
+		fmt.Println(e.Severity, payload["message"])
+	}
+
+	h := gcp.NewHandler(gcp.LoggerFunc(printEntry))
+	l := slog.New(h)
+
+	l.Info("How now brown cow?")
+	l.Log(context.Background(), gslog.LevelNotice, "The rain in Spain lies mainly on the plane.")
+
+	// Output:
+	// Info How now brown cow?
+	// Notice The rain in Spain lies mainly on the plane.
+}
+
+// One component of a program can log at a lower level than the rest.  The
+// copy from WithLeveler shares the logger of the handler, so the entries of
+// both go to the same log.
+func ExampleHandler_WithLeveler() {
+	h := gcp.NewHandler(gcp.LoggerFunc(PrintJsonPayload), gslog.WithLeveler(slog.LevelInfo))
+	verbose := h.WithLeveler(slog.LevelDebug)
+
+	checkout := slog.New(h)
+	payments := slog.New(verbose)
+
+	checkout.Debug("Cart loaded")
+	payments.Debug("Card authorized")
+
+	// Output: {"message":"Card authorized"}
+}
