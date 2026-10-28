@@ -115,7 +115,9 @@ func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {
 
 // Handle handles a slog.Record as the slog.Handler interface specifies.
 // Handle translates the slog.Record into a logging.Entry.  The Payload of
-// the entry is a *spb.Struct.
+// the entry is a *spb.Struct.  Handle sends a record at level Critical or
+// higher with LogSync, and the other records with Log.  If LogSync returns
+// an error, Handle writes the error to os.Stderr and returns the error.
 func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	e := entry.Fill(ctx, &record, h.addSource, h.entryAugmentors)
 
@@ -139,6 +141,8 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 	if logEntry.Severity >= logging.Critical {
 		if err := h.log.LogSync(ctx, logEntry); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error logging: %s\n%s", record.Message, err)
+
+			return fmt.Errorf("failed to send log entry: %w", err)
 		}
 	} else {
 		h.log.Log(logEntry)

@@ -17,6 +17,7 @@ package gcp_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -1282,6 +1283,26 @@ func TestLevelCritical(t *testing.T) {
 	l.Log(context.Background(), gslog.LevelCritical, "Ouch!")
 	assert.Nil(t, got.LogEntry.Payload)
 	assert.NotNil(t, got.SyncLogEntry.Payload)
+}
+
+// failingLogger is a Logger whose LogSync returns err.
+type failingLogger struct {
+	Got
+	err error
+}
+
+func (f *failingLogger) LogSync(_ context.Context, _ logging.Entry) error {
+	return f.err
+}
+
+func TestHandle_logSyncError(t *testing.T) {
+	cause := errors.New("ouch")
+	h := gcp.NewHandler(&failingLogger{err: cause})
+
+	record := slog.NewRecord(testhelp.Time, gslog.LevelCritical, "Ouch!", 0)
+
+	err := h.Handle(context.Background(), record)
+	assert.ErrorIs(t, err, cause)
 }
 
 // removeKeys returns a function for HandlerOptions.Mapper.  The function
