@@ -109,8 +109,8 @@ func (h *Handler) WithLeveler(leveler slog.Leveler) *Handler {
 
 // Enabled reports whether the handler handles records at the given level.
 // The handler ignores a record that has a lower level.
-func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
-	return h.level.Level() <= level
+func (h *Handler) Enabled(_ context.Context, l slog.Level) bool {
+	return h.level.Level() <= l
 }
 
 // Handle handles a slog.Record as the slog.Handler interface specifies.

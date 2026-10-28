@@ -70,9 +70,6 @@ linters:
         # slog.Handler and logging.Logger take slog.Record and logging.Entry
         # by value. A pointer parameter does not satisfy the interfaces.
         - hugeParam
-        # Handler parameters use the same names as the slog level and attr
-        # packages this module imports.
-        - importShadow
       enabled-tags:
         - diagnostic
         - experimental
