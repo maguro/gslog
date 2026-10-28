@@ -15,10 +15,7 @@
 // Package gslog contains Google Cloud Logging handlers for slog.
 //
 // The handlers are in the packages gcp and stdout.  The options, labels,
-// and levels that the handlers share are in the package core.  This package
-// exports the names of release v0.23.0, and imports the API client.  A
-// program that uses only the stdout handler imports the packages core and
-// stdout, and imports no client library.
-//
-// Deprecated: Use the packages gcp, stdout, and core.
+// and levels that the handlers share are in the package core.  A program
+// that uses only the stdout handler imports the packages core and stdout,
+// and imports no client library.
 package gslog

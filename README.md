@@ -267,9 +267,6 @@ module outside the standard library. The handler writes each entry before the
 log call returns, so no entry waits in a buffer when the instance stops. All
 options in the table below work with both handlers.
 
-The root `gslog` package is deprecated. It exports the names of release
-v0.23.0 and imports the API client.
-
 ## Logger Configuration Options
 
 `gcp.NewHandler(logger, ...options)` and `stdout.NewHandler(w, ...options)`
