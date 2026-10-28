@@ -680,13 +680,14 @@ POST /orders status=201 size=7
 
 ### gcp.NewHandler
 
-The example creates a gcp.Handler with a GCP logging.Logger.  The handler maps each slog.Record to a logging.Entry.  The handler then passes the entry to the Log() method of its logging.Logger.
+The example creates a gcp.Handler with a GCP logging.Logger.  The handler maps each slog.Record to a logging.Entry.  The handler then passes the entry to the Log() method of its logging.Logger.  Flush sends the entries that the client still holds before the program exits.
 
 ```go
 package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 
 	"cloud.google.com/go/logging"
@@ -698,17 +699,20 @@ func main() {
 	ctx := context.Background()
 	client, err := logging.NewClient(ctx, "my-project")
 	if err != nil {
-		// TODO: Handle error.
+		log.Fatal(err)
 	}
 
 	lg := client.Logger("my-log")
-
-	lg.Flush()
 
 	h := gcp.NewHandler(lg)
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
+
+	err = lg.Flush()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
@@ -1089,7 +1093,7 @@ func main() {
 Output:
 
 ```text
-{"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"262"}
+{"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"267"}
 ```
 
 ### gcp.NewHandler (withReplaceAttr)

@@ -145,7 +145,10 @@ gslog has two handlers. Both handlers make the same Google Cloud Logging
   logging agent reads the line and makes the entry.
 - `gslog`, the root package, holds the options, the labels, and the levels
   that both handlers use.
-- `otel` and `k8s` hold options that read information from other frameworks.
+- `otel`, `otel/detect`, and `k8s` hold options that read information from
+  other frameworks.
+- `errorreporting` holds the option that causes the handler to write the
+  fields that Google Cloud Error Reporting reads.
 
 The `gcp` handler fills the GCL entry, `logging.Entry`, directly. The handler
 gets the information from the `context.Context`, the `slog.Record`, and the

@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"sort"
@@ -39,22 +40,26 @@ import (
 
 // The example creates a gcp.Handler with a GCP logging.Logger.  The
 // handler maps each slog.Record to a logging.Entry.  The handler then passes
-// the entry to the Log() method of its logging.Logger.
+// the entry to the Log() method of its logging.Logger.  Flush sends the
+// entries that the client still holds before the program exits.
 func ExampleNewHandler() {
 	ctx := context.Background()
 	client, err := logging.NewClient(ctx, "my-project")
 	if err != nil {
-		// TODO: Handle error.
+		log.Fatal(err)
 	}
 
 	lg := client.Logger("my-log")
-
-	lg.Flush()
 
 	h := gcp.NewHandler(lg)
 	l := slog.New(h)
 
 	l.Info("How now brown cow?")
+
+	err = lg.Flush()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 var (
@@ -261,7 +266,7 @@ func ExampleNewHandler_withSourceAdded() {
 
 	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"262"}
+	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"267"}
 }
 
 // RemovePassword is a gslog.AttrMapper that elides password attributes.
