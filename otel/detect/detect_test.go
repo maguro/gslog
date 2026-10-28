@@ -92,6 +92,8 @@ func TestDetectProjectID(t *testing.T) {
 		"metadata server has no ID":      {fakeSource("  ", nil, "from-env"), "from-env"},
 		"no metadata server":             {fakeSource("", unreachable, "from-env"), "from-env"},
 		"no metadata server, no env":     {fakeSource("", unreachable, ""), ""},
+		"env with space":                 {fakeSource("", unreachable, " from-env\n"), "from-env"},
+		"env of only space":              {fakeSource("", unreachable, "  "), ""},
 		"error with a value is not used": {fakeSource("stale", unreachable, ""), ""},
 	} {
 		t.Run(name, func(t *testing.T) {

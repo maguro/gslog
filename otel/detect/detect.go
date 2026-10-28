@@ -86,8 +86,9 @@ func newProjectSource() projectSource {
 
 // detectProjectID returns the project ID from the metadata server.  If the
 // metadata server gives no project ID, detectProjectID returns the value of
-// the environment variable GOOGLE_CLOUD_PROJECT.  detectProjectID returns an
-// empty string when it finds no project ID.
+// the environment variable GOOGLE_CLOUD_PROJECT.  detectProjectID removes the
+// space at the start and the end of each value, and returns an empty string
+// when it finds no project ID.
 func detectProjectID(source projectSource) string {
 	ctx, cancel := context.WithTimeout(context.Background(), detectTimeout)
 	defer cancel()
@@ -100,5 +101,7 @@ func detectProjectID(source projectSource) string {
 		}
 	}
 
-	return source.getenv(projectIDEnvVar)
+	fromEnv := source.getenv(projectIDEnvVar)
+
+	return strings.TrimSpace(fromEnv)
 }
