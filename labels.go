@@ -33,8 +33,13 @@ type LabelPair struct {
 	val   string
 }
 
-// Label returns a new LabelPair from a key and a value.
+// Label returns a new LabelPair from a key and a value.  Label panics if key
+// is empty.
 func Label(key, value string) LabelPair {
+	if key == "" {
+		panic("label key is empty")
+	}
+
 	return LabelPair{valid: true, key: key, val: value}
 }
 
@@ -48,8 +53,8 @@ func (lp LabelPair) LogValue() slog.Value {
 // WithLabels returns a new Context that has the labels of ctx and the
 // supplied labels.  The handler adds these labels to each log entry that it
 // makes with that context.  A supplied label with the same key as a label of
-// ctx replaces the label of ctx.  The function panics if a label pair is not
-// valid.
+// ctx replaces the label of ctx.  WithLabels panics if a label pair is the
+// zero LabelPair.
 func WithLabels(ctx context.Context, labelPairs ...LabelPair) context.Context {
 	parent := entry.LabelsFrom(ctx)
 	labels := make(map[string]string, len(parent)+len(labelPairs))

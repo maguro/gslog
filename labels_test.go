@@ -37,6 +37,12 @@ var _ = Describe("labels", func() {
 				gslog.WithLabels(ctx, gslog.LabelPair{})
 			}).Should(PanicWith("invalid label passed to WithLabels()"))
 		})
+
+		It("should panic on an empty key", func() {
+			Ω(func() {
+				gslog.Label("", "x")
+			}).Should(PanicWith("label key is empty"))
+		})
 	})
 
 	When("context is initialized with several labels", func() {
