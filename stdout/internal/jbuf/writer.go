@@ -460,9 +460,10 @@ func appendSlogValue(buf []byte, v slog.Value) []byte {
 	case slog.KindDuration:
 		return strconv.AppendInt(buf, int64(v.Duration()), decimalBase)
 	case slog.KindTime:
-		formatted := timefmt.RFC3339InMs(v.Time())
+		buf = append(buf, '"')
+		buf = timefmt.AppendRFC3339InMs(buf, v.Time())
 
-		return appendString(buf, formatted)
+		return append(buf, '"')
 	default:
 		return append(buf, "null"...)
 	}

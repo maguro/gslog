@@ -37,6 +37,19 @@ func TestWriteTimeRFC3339(t *testing.T) {
 	}
 }
 
+// TestAppendRFC3339InMs verifies that the append form keeps the content of
+// the buffer and gives the same text as RFC3339InMs.
+func TestAppendRFC3339InMs(t *testing.T) {
+	tm := time.Date(2000, 11, 12, 3, 4, 5, 123456789, time.FixedZone("CET", 3600))
+
+	got := timefmt.AppendRFC3339InMs([]byte(`{"t":"`), tm)
+	want := `{"t":"` + tm.Format(rfc3339Millis)
+
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
 func BenchmarkWriteTime(b *testing.B) {
 	tm := time.Date(2022, 3, 4, 5, 6, 7, 823456789, time.Local)
 	b.ResetTimer()

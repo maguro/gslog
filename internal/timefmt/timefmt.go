@@ -20,6 +20,16 @@ import "time"
 // RFC3339InMs formats an instance of time.Time in the RFC3339 layout with
 // millisecond resolution.  The function is optimized for speed.
 func RFC3339InMs(t time.Time) string {
+	var arr [len(time.RFC3339Nano)]byte
+
+	buf := AppendRFC3339InMs(arr[:0], t)
+
+	return string(buf)
+}
+
+// AppendRFC3339InMs appends t in the RFC3339 layout with millisecond
+// resolution to buf.  AppendRFC3339InMs returns the extended buffer.
+func AppendRFC3339InMs(buf []byte, t time.Time) []byte {
 	// The layout is time.RFC3339Nano, truncated to millisecond resolution.
 	const prefixLen = len("2006-01-02T15:04:05.000")
 
@@ -27,12 +37,11 @@ func RFC3339InMs(t time.Time) string {
 	// keeps exactly 4 digits after the period.
 	const rounding = time.Millisecond / 10
 
-	var arr [len(time.RFC3339Nano)]byte
-
 	t = t.Truncate(time.Millisecond).Add(rounding)
 
-	buf := t.AppendFormat(arr[:0], time.RFC3339Nano)
-	buf = append(buf[:prefixLen], buf[prefixLen+1:]...) // drop the 4th digit
+	start := len(buf)
+	buf = t.AppendFormat(buf, time.RFC3339Nano)
+	digit := start + prefixLen
 
-	return string(buf)
+	return append(buf[:digit], buf[digit+1:]...) // drop the 4th digit
 }
