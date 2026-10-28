@@ -23,8 +23,14 @@ import (
 // Logger wraps the methods that the handler calls on a logging.Logger.  Tests
 // and benchmarks can implement this interface to stub the Logger.
 type Logger interface {
-	Log
-	LogSync
+	// Log buffers the Entry for output to the logging service.  Log never
+	// blocks.
+	Log(e logging.Entry)
+
+	// LogSync logs the Entry synchronously with no buffer.  LogSync is slow
+	// and blocks.  Because of this, use LogSync primarily for debugging or
+	// critical errors.  Prefer Log for most uses.
+	LogSync(ctx context.Context, e logging.Entry) error
 
 	// Flush blocks until all log entries that are currently buffered are sent.
 	//
@@ -36,34 +42,17 @@ type Logger interface {
 	Flush() error
 }
 
-// Log wraps the asynchronous buffered logging of records to
-// Google Cloud Logging.
-type Log interface {
-	// Log buffers the Entry for output to the logging service.  Log never
-	// blocks.
-	Log(e logging.Entry)
-}
-
-// LogSync wraps the synchronous logging of records to
-// Google Cloud Logging.
-type LogSync interface {
-	// LogSync logs the Entry synchronously with no buffer.  LogSync is slow
-	// and blocks.  Because of this, use LogSync primarily for debugging or
-	// critical errors.  Prefer Log for most uses.
-	LogSync(ctx context.Context, e logging.Entry) error
-}
-
 // LoggerFunc is an adapter that lets an ordinary function operate as a
 // Logger.  If fn is a function with the correct signature, LoggerFunc(fn) is
 // a Logger that calls fn.
 type LoggerFunc func(e logging.Entry)
 
-// Log implements Log.Log.
+// Log implements Logger.Log.
 func (fn LoggerFunc) Log(e logging.Entry) {
 	fn(e)
 }
 
-// LogSync implements LogSync.LogSync.
+// LogSync implements Logger.LogSync.
 func (fn LoggerFunc) LogSync(_ context.Context, e logging.Entry) error {
 	fn(e)
 
