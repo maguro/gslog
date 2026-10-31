@@ -103,8 +103,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -115,10 +113,16 @@ jobs:
         run: make coverage
         shell: bash
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      # Coveralls removes up to three leading segments from each profile path.
+      # The module path has two segments, so Coveralls also removes the package
+      # directory. A GitHub path has three segments, so Coveralls keeps it.
+      - name: Change module paths to GitHub paths
+        run: sed 's|^m4o\.io/gslog/|github.com/maguro/gslog/|' coverage.out > coveralls.out
+        shell: bash
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: maguro/gslog
-          flags: smart-tests
-          verbose: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coveralls.out
+          format: golang

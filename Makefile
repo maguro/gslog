@@ -4,6 +4,9 @@ GOVULNCHECK_VERSION := v1.9.0
 
 EXAMPLES_DOC := docs/examples.md
 
+# Only tests use these paths. The coverage profile does not include them.
+COVERAGE_EXCLUDE := /benchmark/|/testdata/|^m4o\.io/gslog/internal/testhelp/
+
 .PHONY: all build test coverage lint fmt check-fmt vuln docs check-docs tidy clean check ci
 
 all: build check
@@ -16,6 +19,8 @@ test:
 
 coverage:
 	go test -v -covermode=count -coverpkg=./... -coverprofile=coverage.out ./...
+	grep -vE '$(COVERAGE_EXCLUDE)' coverage.out > coverage.filtered.out
+	mv coverage.filtered.out coverage.out
 	go tool cover -func=coverage.out
 
 $(GOLANGCI_LINT):

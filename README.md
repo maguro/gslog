@@ -4,7 +4,7 @@
 [![Documentation](https://pkg.go.dev/badge/m4o.io/gslog.svg)](https://pkg.go.dev/m4o.io/gslog)
 [![Go Report Card](https://goreportcard.com/badge/m4o.io/gslog)](https://goreportcard.com/report/m4o.io/gslog)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maguro/gslog/badge)](https://scorecard.dev/viewer/?uri=github.com/maguro/gslog)
-[![codecov](https://codecov.io/gh/maguro/gslog/graph/badge.svg?token=3FAJJ2SIZB)](https://codecov.io/gh/maguro/gslog)
+[![Coverage Status](https://coveralls.io/repos/github/maguro/gslog/badge.svg?branch=main)](https://coveralls.io/github/maguro/gslog?branch=main)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
 
 Structured logging to Google Cloud Logging from Go's `log/slog`. gslog
