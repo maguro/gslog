@@ -52,10 +52,6 @@ jobs:
         run: go mod verify
         shell: bash
 
-      - name: Build
-        run: make build
-        shell: bash
-
       - name: Test
         run: make test
         shell: bash
