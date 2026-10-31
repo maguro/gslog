@@ -16,38 +16,24 @@ package otel_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 
-	"cloud.google.com/go/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 
-	"m4o.io/gslog/gcp"
 	"m4o.io/gslog/otel"
 )
 
-type Got struct {
-	LogEntry     logging.Entry
-	SyncLogEntry logging.Entry
-}
+// remoteSpanContext returns a context that has a sampled remote span.
+func remoteSpanContext(t *testing.T) context.Context {
+	t.Helper()
 
-func (g *Got) Log(e logging.Entry) {
-	g.LogEntry = e
-}
+	traceID, err := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
+	require.NoError(t, err)
 
-func (g *Got) LogSync(_ context.Context, e logging.Entry) error {
-	g.SyncLogEntry = e
-	return nil
-}
-
-func (g *Got) Flush() error {
-	return nil
-}
-
-func TestWithTracing(t *testing.T) {
-	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
-	spanID, _ := trace.SpanIDFromHex("00f067aa0ba902b7")
+	spanID, err := trace.SpanIDFromHex("00f067aa0ba902b7")
+	require.NoError(t, err)
 
 	sCtx := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    traceID,
@@ -56,40 +42,30 @@ func TestWithTracing(t *testing.T) {
 		Remote:     true,
 	})
 
-	ctx := context.Background()
-	ctx = trace.ContextWithRemoteSpanContext(ctx, sCtx)
+	return trace.ContextWithRemoteSpanContext(context.Background(), sCtx)
+}
 
-	got := &Got{}
-	h := gcp.NewHandler(got, otel.WithTracing("my-project"))
-	l := slog.New(h)
+func TestWithTracing(t *testing.T) {
+	ctx := remoteSpanContext(t)
 
-	l.Log(ctx, slog.LevelInfo, "how now brown cow")
+	e := entryOf(ctx, otel.WithTracing("my-project"))
 
-	e := got.LogEntry
-
-	assert.Equal(t, "projects/my-project/traces/"+traceID.String(), e.Trace)
-	assert.Equal(t, spanID.String(), e.SpanID)
+	assert.Equal(t, "projects/my-project/traces/4bf92f3577b34da6a3ce929d0e0e4736", e.Trace())
+	assert.Equal(t, "00f067aa0ba902b7", e.SpanIDString())
 	assert.True(t, e.TraceSampled)
+}
+
+// TestWithTracing_repeated verifies that the last WithTracing option wins.
+func TestWithTracing_repeated(t *testing.T) {
+	ctx := remoteSpanContext(t)
+
+	e := entryOf(ctx, otel.WithTracing("first"), otel.WithTracing("second"))
+
+	assert.Equal(t, "projects/second/traces/4bf92f3577b34da6a3ce929d0e0e4736", e.Trace())
 }
 
 func TestWithTracing_EmptyProjectID(t *testing.T) {
 	assert.Panics(t, func() {
 		otel.WithTracing("")
 	})
-}
-
-func TestWithTracing_repeated(t *testing.T) {
-	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
-	sCtx := trace.NewSpanContext(trace.SpanContextConfig{TraceID: traceID})
-
-	ctx := context.Background()
-	ctx = trace.ContextWithRemoteSpanContext(ctx, sCtx)
-
-	got := &Got{}
-	h := gcp.NewHandler(got, otel.WithTracing("first"), otel.WithTracing("second"))
-	l := slog.New(h)
-
-	l.Log(ctx, slog.LevelInfo, "how now brown cow")
-
-	assert.Equal(t, "projects/second/traces/"+traceID.String(), got.LogEntry.Trace)
 }

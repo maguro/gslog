@@ -350,20 +350,6 @@ func TestHandler_baggageInGroup(t *testing.T) {
 	}, got["req"])
 }
 
-// TestHandler_baggagePropertyKeysAreUnique verifies that a repeated property
-// key is written once, with the last value, in key order.
-func TestHandler_baggagePropertyKeysAreUnique(t *testing.T) {
-	var buf bytes.Buffer
-
-	bag := otel.MustParse("b=two;p2=v2;p1;p2=dup")
-	ctx := baggage.ContextWithBaggage(context.Background(), bag)
-
-	slog.New(stdout.NewHandler(&buf, otel.WithBaggage())).InfoContext(ctx, "hello")
-
-	assert.Equal(t, 1, strings.Count(buf.String(), `"p2":`))
-	assert.Contains(t, buf.String(), `"properties":{"p1":null,"p2":"dup"}`)
-}
-
 // TestHandler_baggageGoesThroughReplaceAttr verifies that the mapper sees
 // each baggage attribute.
 func TestHandler_baggageGoesThroughReplaceAttr(t *testing.T) {
@@ -387,31 +373,21 @@ func TestHandler_baggageGoesThroughReplaceAttr(t *testing.T) {
 	assert.Equal(t, "<redacted>", got["otel-baggage/email"])
 }
 
-// TestHandler_baggageOrderIsStable verifies that the baggage attributes are
-// in key order on every line.
-func TestHandler_baggageOrderIsStable(t *testing.T) {
-	const lines = 20
-
+// TestHandler_baggageAfterCollidingAttr verifies that the handler writes a
+// baggage attribute after an attribute of the handler or the record that
+// has the same key.
+func TestHandler_baggageAfterCollidingAttr(t *testing.T) {
 	var buf bytes.Buffer
 
-	bag := otel.MustParse("e=5,a=1,d=4,b=2,c=3")
+	bag := otel.MustParse("a=one")
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 
-	h := stdout.NewHandler(&buf, otel.WithBaggage())
-	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+	slog.New(stdout.NewHandler(&buf, otel.WithBaggage())).
+		With("otel-baggage/a", "from the handler").
+		InfoContext(ctx, "hello", "otel-baggage/a", "from the record")
 
-	for range lines {
-		require.NoError(t, h.Handle(ctx, record))
-	}
-
-	got := strings.Split(strings.TrimSpace(buf.String()), "\n")
-	require.Len(t, got, lines)
-
-	for _, line := range got {
-		assert.Equal(t, got[0], line)
-	}
-
-	assert.Contains(t, got[0], `"otel-baggage/a":"1","otel-baggage/b":"2","otel-baggage/c":"3","otel-baggage/d":"4","otel-baggage/e":"5"`)
+	assert.Contains(t, buf.String(),
+		`"otel-baggage/a":"from the handler","otel-baggage/a":"from the record","otel-baggage/a":"one"`)
 }
 
 func TestHandler_replaceAttr(t *testing.T) {

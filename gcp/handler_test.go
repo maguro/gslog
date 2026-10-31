@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/baggage"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -1137,8 +1138,6 @@ func TestJSONAndTextHandlers(t *testing.T) {
 	}
 }
 
-// TestWithReplaceAttr_seesBaggage verifies that the mapper sees each
-// baggage attribute.
 // For a value that encoding/json cannot encode, the handler writes the text
 // "!ERROR:" and the error.  The value is content for the groups around it.
 func TestHandler_unencodableValueHasErrorText(t *testing.T) {
@@ -1192,6 +1191,84 @@ func TestHandler_unencodableValueHasErrorText(t *testing.T) {
 	}
 }
 
+// TestHandler_baggageInGroup verifies that the handler writes the baggage
+// attributes in the open group.
+func TestHandler_baggageInGroup(t *testing.T) {
+	got := &Got{}
+
+	var h slog.Handler = gcp.NewHandler(got, otel.WithBaggage())
+	h = h.WithGroup("req").WithAttrs([]slog.Attr{slog.String("id", "abc")})
+
+	bag := otel.MustParse("a=one,b=two;p1;p2=val2")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+	record.AddAttrs(slog.Int("n", 1))
+
+	require.NoError(t, h.Handle(ctx, record))
+
+	payload, ok := got.LogEntry.Payload.(*structpb.Struct)
+	require.True(t, ok)
+
+	assert.Equal(t, map[string]any{
+		"id":             "abc",
+		"n":              1.0,
+		"otel-baggage/a": "one",
+		"otel-baggage/b": map[string]any{"value": "two", "properties": map[string]any{"p1": nil, "p2": "val2"}},
+	}, payload.AsMap()["req"])
+}
+
+// TestHandler_baggageReplacesCollidingAttr verifies that a baggage attribute
+// replaces an attribute of the handler or the record that has the same key.
+func TestHandler_baggageReplacesCollidingAttr(t *testing.T) {
+	got := &Got{}
+
+	var h slog.Handler = gcp.NewHandler(got, otel.WithBaggage())
+	h = h.WithAttrs([]slog.Attr{slog.String("otel-baggage/a", "from the handler")})
+
+	bag := otel.MustParse("a=one")
+	ctx := baggage.ContextWithBaggage(context.Background(), bag)
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+	record.AddAttrs(slog.String("otel-baggage/a", "from the record"))
+
+	require.NoError(t, h.Handle(ctx, record))
+
+	payload, ok := got.LogEntry.Payload.(*structpb.Struct)
+	require.True(t, ok)
+
+	fields := payload.GetFields()
+	assert.Equal(t, "one", fields["otel-baggage/a"].GetStringValue())
+}
+
+// TestHandler_traceFields verifies that the handler writes the trace of the
+// entry to the fields of the log entry.
+func TestHandler_traceFields(t *testing.T) {
+	traceID, err := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
+	require.NoError(t, err)
+
+	spanID, err := trace.SpanIDFromHex("00f067aa0ba902b7")
+	require.NoError(t, err)
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
+
+	got := &Got{}
+	h := gcp.NewHandler(got, otel.WithTracing("my-project"))
+
+	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
+
+	require.NoError(t, h.Handle(ctx, record))
+
+	assert.Equal(t, "projects/my-project/traces/4bf92f3577b34da6a3ce929d0e0e4736", got.LogEntry.Trace)
+	assert.Equal(t, "00f067aa0ba902b7", got.LogEntry.SpanID)
+	assert.True(t, got.LogEntry.TraceSampled)
+}
+
+// TestWithReplaceAttr_seesBaggage verifies that the mapper sees each
+// baggage attribute.
 func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 	redact := func(_ []string, a slog.Attr) slog.Attr {
 		if strings.Contains(a.Key, "email") {
