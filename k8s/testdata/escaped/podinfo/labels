@@ -1,0 +1,2 @@
+escaped="a\tb"
+bad="\q"

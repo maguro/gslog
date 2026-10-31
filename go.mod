@@ -5,7 +5,6 @@ go 1.26.0
 require (
 	cloud.google.com/go/compute/metadata v0.10.0
 	cloud.google.com/go/logging v1.21.0
-	github.com/magiconair/properties v1.18.12
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/stretchr/testify v1.12.1

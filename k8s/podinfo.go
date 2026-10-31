@@ -21,11 +21,12 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/magiconair/properties"
+	"strconv"
+	"strings"
 
 	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
@@ -36,6 +37,10 @@ const (
 	// PodPrefix is the prefix for labels that come from the Kubernetes
 	// Downward API podinfo labels file.
 	PodPrefix = "k8s-pod/"
+
+	// separator divides the key from the value on a line of the podinfo
+	// labels file.
+	separator = "="
 )
 
 // WithPodinfoLabels returns an option that causes the handler to include
@@ -63,7 +68,7 @@ func WithPodinfoLabels(root string) gslog.Option {
 func podinfoAugmentor(root string) entry.Augmentor {
 	path := filepath.Join(root, "labels")
 
-	props, err := properties.LoadFile(path, properties.UTF8)
+	labels, err := podLabels(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			slog.Warn("Podinfo file does not exist", "path", path)
@@ -74,27 +79,66 @@ func podinfoAugmentor(root string) entry.Augmentor {
 		return func(_ context.Context, _ *entry.Entry) {}
 	}
 
-	loaded := podLabels(props)
-	labels := entry.NewLabels(loaded)
-
 	return func(_ context.Context, e *entry.Entry) {
 		e.Labels = e.Labels.Merge(labels)
 	}
 }
 
-// podLabels returns the labels in props.  The function removes the quotes
-// around a quoted value, adds PodPrefix to each key, and replaces a byte that
-// is not valid UTF-8 with U+FFFD.
-func podLabels(props *properties.Properties) map[string]string {
-	labels := make(map[string]string, props.Len())
-
-	for key, val := range props.Map() {
-		if n := len(val); n >= 2 && val[0] == '"' && val[n-1] == '"' {
-			val = val[1 : n-1]
-		}
-
-		labels[PodPrefix+entry.ValidUTF8(key)] = entry.ValidUTF8(val)
+// podLabels returns the labels in the podinfo labels file at path.  podLabels
+// adds PodPrefix to each key.  The function replaces a byte that is not valid
+// UTF-8 with U+FFFD.
+//
+// The Kubernetes Downward API writes one label per line, in the form
+// key="value", where the value is a Go quoted string.  The function removes
+// the whitespace around the key and the value.  A line that has no separator
+// makes the whole file invalid, because a partial set of labels is more
+// misleading than no labels.
+func podLabels(path string) (entry.Labels, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return entry.Labels{}, err
 	}
 
-	return labels
+	labels := make(map[string]string)
+
+	lineNo := 0
+
+	for line := range strings.SplitSeq(string(data), "\n") {
+		lineNo++
+
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		key, val, found := strings.Cut(line, separator)
+		if !found {
+			return entry.Labels{}, fmt.Errorf("line %d has no %q separator", lineNo, separator)
+		}
+
+		// The quotes bound the value, so a trim cannot remove a space that
+		// belongs to the value.
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+
+		labels[PodPrefix+entry.ValidUTF8(key)] = entry.ValidUTF8(unquote(val))
+	}
+
+	return entry.NewLabels(labels), nil
+}
+
+// unquote removes the quotes from a Go quoted string.  The function also
+// expands the escape sequences of the string.  If val is not a Go quoted
+// string, unquote returns val unchanged, because such a value is still usable
+// as a label.
+func unquote(val string) string {
+	if n := len(val); n < 2 || val[0] != '"' || val[n-1] != '"' {
+		return val
+	}
+
+	unquoted, err := strconv.Unquote(val)
+	if err != nil {
+		return val
+	}
+
+	return unquoted
 }

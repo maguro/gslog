@@ -1,2 +1,2 @@
-a="${b}"
-b="${a}"
+app="hello-world"
+this line has no separator

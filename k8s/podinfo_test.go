@@ -116,7 +116,7 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 			})
 	})
 
-	When("the podinfo labels file exists but contents are bad", func() {
+	When("the podinfo labels file has a line without a separator", func() {
 		BeforeEach(func() {
 			root = "testdata/ouch/podinfo"
 		})
@@ -129,6 +129,44 @@ var _ = Describe("Kubernetes podinfo labels", func() {
 				}
 
 				Ω(e.Labels.Map).Should(BeEmpty())
+			})
+	})
+
+	When("the podinfo labels file has whitespace around a key and a value", func() {
+		BeforeEach(func() {
+			root = "testdata/padded/podinfo"
+		})
+
+		It("the whitespace outside the quotes is removed, and the whitespace inside stays",
+			func() {
+				e := &entry.Entry{}
+				for _, a := range o.EntryAugmentors {
+					a(ctx, e)
+				}
+
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
+					k8s.PodPrefix + "app":    Equal("hello-world"),
+					k8s.PodPrefix + "spaced": Equal(" x "),
+				}))
+			})
+	})
+
+	When("the podinfo labels file has escape sequences in a value", func() {
+		BeforeEach(func() {
+			root = "testdata/escaped/podinfo"
+		})
+
+		It("the escapes are expanded, and a bad escape leaves the value as it is",
+			func() {
+				e := &entry.Entry{}
+				for _, a := range o.EntryAugmentors {
+					a(ctx, e)
+				}
+
+				Ω(e.Labels.Map).Should(MatchAllKeys(Keys{
+					k8s.PodPrefix + "escaped": Equal("a\tb"),
+					k8s.PodPrefix + "bad":     Equal(`"\q"`),
+				}))
 			})
 	})
 
