@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -235,7 +235,7 @@ func TestModulePath(t *testing.T) {
 	assert.Equal(t, "example.com/m", module)
 
 	_, err = modulePath(emptyPath)
-	assert.ErrorContains(t, err, "no module directive")
+	require.ErrorContains(t, err, "no module directive")
 
 	_, err = modulePath(missingPath)
 	assert.Error(t, err)
@@ -246,8 +246,8 @@ func TestCompare(t *testing.T) {
 	path := filepath.Join(root, "out.md")
 	missing := filepath.Join(root, "missing.md")
 
-	assert.NoError(t, compare(path, []byte("text\n")))
-	assert.ErrorContains(t, compare(path, []byte("other\n")), "out of date")
+	require.NoError(t, compare(path, []byte("text\n")))
+	require.ErrorContains(t, compare(path, []byte("other\n")), "out of date")
 	assert.Error(t, compare(missing, []byte("text\n")))
 }
 
@@ -413,8 +413,8 @@ func TestRun(t *testing.T) {
 
 	require.NoError(t, os.WriteFile(out, []byte("old\n"), 0o600))
 
-	assert.ErrorContains(t, runIn(t, root, "-check", "-o", out), "out of date")
-	assert.ErrorContains(t, runIn(t, root, "extra"), "no arguments")
+	require.ErrorContains(t, runIn(t, root, "-check", "-o", out), "out of date")
+	require.ErrorContains(t, runIn(t, root, "extra"), "no arguments")
 
 	empty := t.TempDir()
 

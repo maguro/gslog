@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -1150,7 +1150,7 @@ func TestHandler_unencodableValueHasErrorText(t *testing.T) {
 	}{
 		"top level": {
 			log: func(l *slog.Logger) {
-				l.Info("hello", slog.Any("ch", make(chan int)), "kept", 1)
+				l.Info("hello", slog.Any("ch", make(chan int)), slog.Int("kept", 1))
 			},
 			want: map[string]any{"ch": text, "kept": 1.0},
 		},
@@ -1208,7 +1208,7 @@ func TestWithReplaceAttr_seesBaggage(t *testing.T) {
 	ctx := baggage.ContextWithBaggage(context.Background(), bag)
 	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
-	assert.NoError(t, h.Handle(ctx, record))
+	require.NoError(t, h.Handle(ctx, record))
 
 	payload, ok := got.LogEntry.Payload.(*structpb.Struct)
 	assert.True(t, ok)
@@ -1223,7 +1223,7 @@ func TestWithSourceAdded_noPC(t *testing.T) {
 
 	record := slog.NewRecord(testhelp.Time, slog.LevelInfo, "hello", 0)
 
-	assert.NoError(t, h.Handle(context.Background(), record))
+	require.NoError(t, h.Handle(context.Background(), record))
 	assert.Nil(t, got.LogEntry.SourceLocation)
 }
 
@@ -1317,7 +1317,7 @@ func TestWithLeveler_nil(t *testing.T) {
 func TestHandler_Flush(t *testing.T) {
 	h := gcp.NewHandler(&Got{})
 
-	assert.NoError(t, h.Flush())
+	require.NoError(t, h.Flush())
 
 	cause := errors.New("ouch")
 	failing := gcp.NewHandler(&failingLogger{err: cause})

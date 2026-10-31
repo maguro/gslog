@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -82,7 +82,7 @@ func TestHandler_agentFields(t *testing.T) {
 	assert.Equal(t, "projects/my-project/traces/52fc1643a9381fc674742bb0067101e7", got["logging.googleapis.com/trace"])
 	assert.Equal(t, "d3e9e8c51cb190df", got["logging.googleapis.com/spanId"])
 	assert.Equal(t, true, got["logging.googleapis.com/trace_sampled"])
-	assert.Equal(t, 3.0, got["count"])
+	assert.InDelta(t, 3.0, got["count"], 0)
 
 	loc, ok := got["logging.googleapis.com/sourceLocation"].(map[string]any)
 	require.True(t, ok)
@@ -127,7 +127,7 @@ func TestHandler_reservedKeysAreDropped(t *testing.T) {
 	assert.NotContains(t, got, "time")
 	assert.NotContains(t, got, "timestampSeconds")
 	assert.NotContains(t, got, "timestampNanos")
-	assert.Equal(t, 1.0, got["kept"])
+	assert.InDelta(t, 1.0, got["kept"], 0)
 }
 
 // TestHandler_agentKeyGroupIsNotWritten verifies that a top-level group with
@@ -142,7 +142,7 @@ func TestHandler_agentKeyGroupIsNotWritten(t *testing.T) {
 	got := decodeLine(t, &buf)
 
 	assert.Equal(t, "INFO", got["severity"])
-	assert.Equal(t, 1.0, got["top"])
+	assert.InDelta(t, 1.0, got["top"], 0)
 }
 
 // TestHandler_groupReplacesAttrWithSameKey verifies that a group takes the
@@ -157,7 +157,7 @@ func TestHandler_groupReplacesAttrWithSameKey(t *testing.T) {
 	got := decodeLine(t, &buf)
 
 	assert.Equal(t, map[string]any{"n": 1.0}, got["a"])
-	assert.Equal(t, 2.0, got["b"])
+	assert.InDelta(t, 2.0, got["b"], 0)
 }
 
 func TestHandler_messageKeyIsNotDuplicated(t *testing.T) {
@@ -439,7 +439,7 @@ func TestHandler_replaceAttr(t *testing.T) {
 	assert.NotContains(t, got, "message")
 	assert.NotContains(t, got, "password")
 	assert.Equal(t, "jan", got["user"])
-	assert.Equal(t, 1.0, got["n"])
+	assert.InDelta(t, 1.0, got["n"], 0)
 }
 
 // For a value that encoding/json cannot encode, the handler writes the text
@@ -453,7 +453,7 @@ func TestHandler_unencodableValueHasErrorText(t *testing.T) {
 	}{
 		"top level": {
 			log: func(l *slog.Logger) {
-				l.Info("hello", slog.Any("ch", make(chan int)), "kept", 1)
+				l.Info("hello", slog.Any("ch", make(chan int)), slog.Int("kept", 1))
 			},
 			want: map[string]any{"ch": text, "kept": 1.0},
 		},
@@ -517,11 +517,11 @@ func TestHandler_attrKinds(t *testing.T) {
 
 	got := decodeLine(t, &buf)
 
-	assert.Equal(t, -3.0, got["i"])
-	assert.Equal(t, 7.0, got["u"])
-	assert.Equal(t, 2.5, got["f"])
+	assert.InDelta(t, -3.0, got["i"], 0)
+	assert.InDelta(t, 7.0, got["u"], 0)
+	assert.InDelta(t, 2.5, got["f"], 0)
 	assert.Equal(t, true, got["b"])
-	assert.Equal(t, 1.5e9, got["d"])
+	assert.InDelta(t, 1.5e9, got["d"], 0)
 	assert.Equal(t, "2000-01-02T03:04:05.000Z", got["t"])
 	assert.Equal(t, "ouch", got["err"])
 	assert.Equal(t, map[string]any{"X": 1.0, "Y": 2.0}, got["p"])

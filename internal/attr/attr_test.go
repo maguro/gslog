@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -205,7 +205,7 @@ func TestToJSONDecodeError(t *testing.T) {
 	for name, a := range tests {
 		t.Run(name, func(t *testing.T) {
 			got, err := attr.ToJSON(a)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, got)
 		})
 	}
@@ -228,7 +228,7 @@ func TestAsJson(t *testing.T) {
 			if tc.err {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.value, value)
 			}
 		})

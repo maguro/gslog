@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"m4o.io/gslog"
 	"m4o.io/gslog/internal/options"
@@ -75,7 +76,7 @@ func TestLogLevel(t *testing.T) {
 			}
 			if tc.envVar {
 				if tc.envVarKey != "" {
-					assert.NoError(t, os.Setenv(tc.envVarKey, tc.envVarValue))
+					require.NoError(t, os.Setenv(tc.envVarKey, tc.envVarValue))
 					defer func() {
 						assert.NoError(t, os.Unsetenv(envVarLogLevelKey))
 					}()
