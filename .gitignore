@@ -19,3 +19,6 @@
 
 # Go workspace file
 go.work
+
+# Local tools that Makefile targets install.
+.cache/
