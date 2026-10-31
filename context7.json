@@ -3,7 +3,7 @@
   "projectTitle": "gslog",
   "description": "Go log/slog handlers that write Google Cloud Logging entries, with trace linking, OpenTelemetry baggage, Kubernetes pod labels, and Error Reporting fields.",
   "excludeFolders": [".claude", ".github", "internal", "k8s/testdata"],
-  "excludeFiles": ["AGENTS.md", "CLAUDE.md", "SECURITY.md"],
+  "excludeFiles": ["AGENTS.md", "CLAUDE.md", "CODING_STANDARDS.md", "SECURITY.md"],
   "rules": [
     "Import m4o.io/gslog/stdout or m4o.io/gslog/gcp.",
     "Use the stdout handler when a logging agent reads stdout: Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent.",
