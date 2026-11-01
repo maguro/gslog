@@ -2,28 +2,3 @@
 id = "GO-2026-5932"
 ignoreUntil = 2027-01-25
 reason = "No package in the build imports golang.org/x/crypto/openpgp. No fixed version exists."
-
-[[IgnoredVulns]]
-id = "GO-2026-6603"
-ignoreUntil = 2027-01-25
-reason = "golang.org/x/net v0.60.0 fixes this. The stdlib fix is in Go 1.26.9. The go directive is the minimum version for importers, and their toolchain supplies the stdlib."
-
-[[IgnoredVulns]]
-id = "GO-2026-6610"
-ignoreUntil = 2027-01-25
-reason = "golang.org/x/net v0.60.0 fixes this. The stdlib fix is in Go 1.26.9. The go directive is the minimum version for importers, and their toolchain supplies the stdlib."
-
-[[IgnoredVulns]]
-id = "GO-2026-6611"
-ignoreUntil = 2027-01-25
-reason = "golang.org/x/net v0.60.0 fixes this. The stdlib fix is in Go 1.26.9. The go directive is the minimum version for importers, and their toolchain supplies the stdlib."
-
-[[IgnoredVulns]]
-id = "GO-2026-6612"
-ignoreUntil = 2027-01-25
-reason = "golang.org/x/net v0.60.0 fixes this. The stdlib fix is in Go 1.26.9. The go directive is the minimum version for importers, and their toolchain supplies the stdlib."
-
-[[IgnoredVulns]]
-id = "GO-2026-6617"
-ignoreUntil = 2027-01-25
-reason = "golang.org/x/net v0.60.0 fixes this. The stdlib fix is in Go 1.26.9. The go directive is the minimum version for importers, and their toolchain supplies the stdlib."
