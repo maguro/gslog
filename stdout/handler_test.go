@@ -498,7 +498,7 @@ func TestHandler_attrKinds(t *testing.T) {
 	assert.InDelta(t, 2.5, got["f"], 0)
 	assert.Equal(t, true, got["b"])
 	assert.InDelta(t, 1.5e9, got["d"], 0)
-	assert.Equal(t, "2000-01-02T03:04:05.000Z", got["t"])
+	assert.Equal(t, "2000-01-02T03:04:05Z", got["t"])
 	assert.Equal(t, "ouch", got["err"])
 	assert.Equal(t, map[string]any{"X": 1.0, "Y": 2.0}, got["p"])
 	assert.Contains(t, got, "nil")

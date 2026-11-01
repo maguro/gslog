@@ -28,7 +28,6 @@ import (
 	spb "google.golang.org/protobuf/types/known/structpb"
 
 	"m4o.io/gslog/internal/entry"
-	"m4o.io/gslog/internal/timefmt"
 )
 
 // errorPrefix is the start of the string that NewAny returns for an
@@ -360,9 +359,11 @@ func jsonList(l []any) (*spb.Value, bool) {
 	return NewListValue(list), true
 }
 
-// NewTimeValue creates the spb.Value equivalent of the supplied time.Time instance.
+// NewTimeValue creates the spb.Value equivalent of the supplied time.Time
+// instance.  The text keeps the nanosecond resolution of t, and the
+// time.RFC3339Nano layout removes the trailing zeros of the fraction.
 func NewTimeValue(t time.Time) *spb.Value {
-	formatted := timefmt.RFC3339InMs(t)
+	formatted := t.Format(time.RFC3339Nano)
 
 	return NewStringValue(formatted)
 }

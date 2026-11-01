@@ -26,7 +26,6 @@ import (
 	"m4o.io/gslog"
 	"m4o.io/gslog/internal/entry"
 	"m4o.io/gslog/internal/level"
-	"m4o.io/gslog/internal/timefmt"
 )
 
 // The keys that the Google Cloud logging agent reads from a JSON line.  The
@@ -575,7 +574,7 @@ func appendSlogValue(buf []byte, v slog.Value) []byte {
 		return strconv.AppendInt(buf, int64(v.Duration()), decimalBase)
 	case slog.KindTime:
 		buf = append(buf, '"')
-		buf = timefmt.AppendRFC3339InMs(buf, v.Time())
+		buf = v.Time().AppendFormat(buf, time.RFC3339Nano)
 
 		return append(buf, '"')
 	default:
