@@ -2,7 +2,6 @@
 
 ![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.26-%23007d9c)
 [![Documentation](https://pkg.go.dev/badge/m4o.io/gslog.svg)](https://pkg.go.dev/m4o.io/gslog)
-[![Go Report Card](https://goreportcard.com/badge/m4o.io/gslog)](https://goreportcard.com/report/m4o.io/gslog)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/maguro/gslog/badge)](https://scorecard.dev/viewer/?uri=github.com/maguro/gslog)
 [![Coverage Status](https://coveralls.io/repos/github/maguro/gslog/badge.svg?branch=main)](https://coveralls.io/github/maguro/gslog?branch=main)
 [![License](https://img.shields.io/github/license/maguro/gslog)](./LICENSE)
