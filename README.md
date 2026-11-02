@@ -8,9 +8,9 @@
 
 Structured logging to Google Cloud Logging from Go's `log/slog`. gslog
 writes each `slog` record as a Cloud Logging entry with the correct severity,
-a `jsonPayload`, and the fields that link the entry to its trace in Cloud
-Trace. It also adds OpenTelemetry baggage, Kubernetes pod labels, and labels
-from the context.
+the attributes as structured data, and the fields that link the entry to its
+trace in Cloud Trace. It also adds OpenTelemetry baggage, Kubernetes pod
+labels, and labels from the context.
 
 ## Install
 
