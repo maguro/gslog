@@ -25,6 +25,11 @@ gslog uses the `log/slog` API that Go 1.21 introduced. The dependencies of
 gslog set the minimum Go version to 1.26. The language features that gslog
 uses do not set this minimum.
 
+If you upgrade from v0.25.x or earlier, read
+[Migration to v1.0.0](docs/migration_to_1_0.md). v1.0.0 removes the `core`
+package and renames several declarations. v1.0.0 also changes the log
+output, and a log query can depend on that output.
+
 ## Quick Start
 
 On Cloud Run, Cloud Functions, GKE, and GCE with the Ops Agent, a logging
