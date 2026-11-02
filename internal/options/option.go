@@ -49,11 +49,11 @@ type Options struct {
 	// location of the entry.
 	AddSource bool
 
-	// Level reports the minimum record level that the handler logs.
-	// The handler discards records with lower levels.
-	// If Level is nil, the handler assumes LevelInfo.
-	// The handler calls Level.Level() for each record that it processes.
-	// To adjust the minimum level dynamically, use a LevelVar.
+	// Level reports the minimum record level that the handler logs.  The
+	// handler discards records with lower levels.  If Level is nil, the
+	// handler assumes LevelInfo.  The handler calls Level.Level() for each
+	// record that the handler processes.  To change the minimum level while
+	// the program runs, use a slog.LevelVar.
 	Level slog.Leveler
 
 	// ReplaceAttr rewrites each non-group attribute before the handler logs

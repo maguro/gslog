@@ -56,8 +56,8 @@ const (
 	maxPooledBuffer   = 16 << 10
 )
 
-// errorPrefix is the start of the string that the writer appends for a value
-// that encoding/json cannot encode.  log/slog uses the same text.
+// errorPrefix is the start of the string that the writer appends when
+// encoding/json cannot encode a value.  log/slog uses the same text.
 const errorPrefix = "!ERROR:"
 
 var writerPool = sync.Pool{
@@ -128,9 +128,10 @@ func ReleaseWriter(w *Writer) {
 // error report.
 func (w *Writer) Member(key string) *Writer {
 	switch key {
-	// The handler drops these keys.  It writes the first eight itself.  The
-	// agent reads the other three as the timestamp, so a value under one of
-	// them would compete with the "timestamp" member that the handler writes.
+	// The handler drops these keys.  The handler writes the first eight keys
+	// itself.  The agent reads the other three keys as the timestamp, so a
+	// value under one of these three keys would conflict with the "timestamp"
+	// member that the handler writes.
 	case gslog.MessageKey, agentSeverityKey, agentLabelsKey, agentSourceLocationKey, agentSpanIDKey,
 		agentTraceKey, agentTraceSampledKey, agentTimestampKey,
 		agentTimeKey, agentTimestampSecondsKey, agentTimestampNanosKey:
@@ -264,10 +265,10 @@ func (w *Writer) AppendErrorReport(report *entry.ErrorReport) {
 }
 
 // AppendAnyAttr appends an attribute of kind slog.KindAny.  A nil value is
-// null.  An error that does not implement json.Marshaler is written as its
-// Error() string.  All other values are encoded with encoding/json.  If
-// encoding/json returns an error, AppendAnyAttr appends the string "!ERROR:"
-// followed by the error text.
+// null.  For an error that does not implement json.Marshaler, AppendAnyAttr
+// appends the Error() string.  For every other value, AppendAnyAttr uses
+// encoding/json.  If encoding/json returns an error, AppendAnyAttr appends
+// the string "!ERROR:" followed by the error text.
 func (w *Writer) AppendAnyAttr(key string, value any) {
 	if value == nil {
 		w.key(key)

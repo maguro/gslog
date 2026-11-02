@@ -192,13 +192,13 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 	return handler2
 }
 
-// Flush blocks until all log entries that are currently buffered are sent.
+// Flush blocks until the logger sends every entry buffered before the call.
 //
-// Flush returns a non-nil error if errors occurred since the last call to
-// Flush from any Logger.  If this is the first call, the errors count from
-// the creation of the client.  The error contains summary information about
-// the errors.  This information is unlikely to be actionable.  For more
-// accurate error reports, set Client.OnError.
+// Flush returns a non-nil error when errors occurred since the last call to
+// Flush from any Logger.  If this is the first call, the count starts at the
+// creation of the client.  The error summarizes those errors.  That summary
+// is rarely enough to act on.  For more accurate error reports, set
+// Client.OnError.
 func (h *Handler) Flush() error {
 	if err := h.log.Flush(); err != nil {
 		return fmt.Errorf("failed to flush handler: %w", err)

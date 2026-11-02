@@ -24,14 +24,16 @@ import (
 
 // WithService returns an option that causes the handler to write the Google
 // Cloud Error Reporting fields for the service.  The handler writes the
-// fields in each record at level Error or higher.  The fields are the type
-// of a ReportedErrorEvent, the service context, and a stack trace.  The
-// service context has the service, and has the version only when version is
-// not empty.  The stack trace is the stack of the log call.  The handler
-// does not write a top-level attribute or group that has the key of a field
-// in the same record.  If the options have more than one WithService option,
-// the handler uses the last WithService option.  WithService panics if
-// service is empty.
+// fields in each record at level Error or higher.
+//
+// The fields are the type of a ReportedErrorEvent, the service context, and
+// a stack trace.  The service context has the service, and has the version
+// only when version is not empty.  The stack trace is the stack of the log
+// call.  The handler does not write a top-level attribute or group that has
+// the key of a field in the same record.
+//
+// If the options have more than one WithService option, the handler uses the
+// last WithService option.  WithService panics if service is empty.
 func WithService(service, version string) gslog.Option {
 	if service == "" {
 		panic("service is empty")

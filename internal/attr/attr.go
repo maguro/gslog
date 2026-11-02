@@ -40,7 +40,7 @@ var nilValue = &spb.Value{Kind: &spb.Value_NullValue{NullValue: spb.NullValue_NU
 // DecorateWith does nothing for a group with no attribute.  DecorateWith maps
 // an attribute of kind slog.KindAny with this precedence:
 //
-//   - If the value is a builtin.error and does not implement json.Marshaler,
+//   - If the value is an error and does not implement json.Marshaler,
 //     DecorateWith uses the Error() string.
 //   - If the value has a type that encoding/json encodes without a
 //     json.Marshaler, DecorateWith maps the value directly with the rules of
@@ -179,7 +179,8 @@ func NewListValue(l *spb.ListValue) *spb.Value {
 	return &v.value
 }
 
-// NewGroupValue creates the spb.Value equivalent of the supplied slog.Attr array.
+// NewGroupValue creates the spb.Value equivalent of the supplied slog.Attr
+// slice.
 func NewGroupValue(g []slog.Attr) *spb.Value {
 	p := &spb.Struct{Fields: make(map[string]*spb.Value)}
 	for _, b := range g {

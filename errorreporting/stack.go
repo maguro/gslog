@@ -53,10 +53,12 @@ func captureStack() string {
 // trimStack then removes the frames before the first frame of the log/slog
 // package.  These frames are the frames of the handlers that call the gslog
 // handler.  trimStack also removes that first frame and the frames of the
-// log/slog package that follow that frame.  If the stack trace has no frame
-// of the log/slog package, trimStack removes only the frames of the gslog
-// module.  The result keeps the goroutine header line.  If no frame remains,
-// trimStack returns the whole stack trace.
+// log/slog package that follow that frame.
+//
+// If the stack trace has no frame of the log/slog package, trimStack removes
+// only the frames of the gslog module.  The result keeps the goroutine
+// header line.  If no frame remains, trimStack returns the whole stack
+// trace.
 func trimStack(stack []byte) string {
 	header, frames, found := bytes.Cut(stack, newline)
 	if !found {

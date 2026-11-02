@@ -16,8 +16,8 @@ package gslog
 
 import "log/slog"
 
-// The levels that Cloud Logging has and slog does not.  The internal level
-// package holds the same values.
+// The levels that Cloud Logging has and that slog does not have.  The
+// internal level package holds the same values.
 const (
 	// LevelNotice means normal but significant events, such as start up,
 	// shut down, or configuration.

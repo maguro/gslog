@@ -212,8 +212,8 @@ func AddLabels(ctx context.Context, e *Entry) {
 }
 
 // ValidUTF8 returns s when s is valid UTF-8.  Otherwise, ValidUTF8 returns a
-// copy of s in which each byte that is not valid UTF-8 is the replacement
-// character U+FFFD.  encoding/json makes the same replacement.
+// copy of s.  In that copy, the replacement character U+FFFD replaces each
+// byte that is not valid UTF-8.  encoding/json makes the same replacement.
 func ValidUTF8(s string) string {
 	if utf8.ValidString(s) {
 		return s

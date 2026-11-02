@@ -39,7 +39,7 @@ const (
 	Emergency Severity = 800
 )
 
-// The levels that Cloud Logging has and slog does not.
+// The levels that Cloud Logging has and that slog does not have.
 const (
 	// LevelNotice means normal but significant events, such as start up,
 	// shut down, or configuration.
@@ -59,7 +59,7 @@ const (
 	severityIncrement = 100
 )
 
-// ToSeverity clamps a level to the range lowestLevel to highestLevel.
+// lowestLevel and highestLevel are the bounds of the clamp in ToSeverity.
 const (
 	lowestLevel  = slog.Level(-severityIntercept)
 	highestLevel = LevelEmergency

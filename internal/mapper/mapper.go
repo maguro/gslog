@@ -49,7 +49,7 @@ func Wrap(mapper gslog.AttrMapper) gslog.AttrMapper {
 			for _, ga := range attr.Value.Group() {
 				mapped := wrapped(path, ga)
 
-				// elide empty attributes
+				// The wrapper discards a member that maps to the zero Attr.
 				if mapped.Key == "" && mapped.Value.Any() == nil {
 					continue
 				}

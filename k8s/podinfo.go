@@ -85,11 +85,11 @@ func podinfoAugmentor(root string) entry.Augmentor {
 }
 
 // podLabels returns the labels in the podinfo labels file at path.  podLabels
-// adds PodPrefix to each key.  The function replaces a byte that is not valid
+// adds PodPrefix to each key.  podLabels replaces a byte that is not valid
 // UTF-8 with U+FFFD.
 //
 // The Kubernetes Downward API writes one label per line, in the form
-// key="value", where the value is a Go quoted string.  The function removes
+// key="value", where the value is a Go quoted string.  podLabels removes
 // the whitespace around the key and the value.  A line that has no separator
 // makes the whole file invalid, because a partial set of labels is more
 // misleading than no labels.
@@ -126,10 +126,10 @@ func podLabels(path string) (entry.Labels, error) {
 	return entry.NewLabels(labels), nil
 }
 
-// unquote removes the quotes from a Go quoted string.  The function also
-// expands the escape sequences of the string.  If val is not a Go quoted
-// string, unquote returns val unchanged, because such a value is still usable
-// as a label.
+// unquote removes the quotes from a Go quoted string.  unquote also expands
+// the escape sequences of the string.  If val is not a Go quoted string,
+// unquote returns val unchanged, because such a value is still usable as a
+// label.
 func unquote(val string) string {
 	if n := len(val); n < 2 || val[0] != '"' || val[n-1] != '"' {
 		return val

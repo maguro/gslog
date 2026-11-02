@@ -173,8 +173,8 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 // WithGroup returns a copy of the handler.  The groups of the copy are the
 // groups of h followed by name.  The group replaces an attribute of h that
 // has the same key at that level, because a JSON object cannot hold two
-// members with one key, and the gcp handler, whose payload is a map, keeps
-// the group.
+// members with one key, and because the gcp handler, with a map as its
+// payload, keeps the group.
 func (h *Handler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
@@ -257,9 +257,10 @@ func (h *Handler) appendMessage(w *jbuf.Writer, record *slog.Record) {
 }
 
 // appendBody appends the serialized prefixes, the attributes of the record,
-// and then extra.  Each group level is one nested object.  A group with no
-// content at or below its level is not written.  appendBody does not write
-// the groups when Member returns nil for the key of the top-level group.
+// and then extra.  Each group level is one nested object.  appendBody does
+// not write a group that has no content at or below its level.  appendBody
+// does not write the groups when Member returns nil for the key of the
+// top-level group.
 func (h *Handler) appendBody(w *jbuf.Writer, record *slog.Record, extra []slog.Attr) {
 	w.AppendRaw(h.prefix[0])
 
@@ -335,10 +336,10 @@ func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 	w.AppendSlogValue(a.Key, v)
 }
 
-// appendGroupAttr appends a group attribute as a nested object.  A group
-// with an empty key is written in the current object.  At the top level,
-// appendGroupAttr appends the group to the writer that Member returns for the
-// key.
+// appendGroupAttr appends a group attribute as a nested object.
+// appendGroupAttr writes a group with an empty key in the current object.
+// At the top level, appendGroupAttr appends the group to the writer that
+// Member returns for the key.
 func (h *Handler) appendGroupAttr(w *jbuf.Writer, key string, attrs []slog.Attr, topLevel bool) {
 	if key == "" {
 		for _, a := range attrs {
