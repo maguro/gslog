@@ -255,7 +255,7 @@ func ExampleNewHandler_withSourceAdded() {
 
 	l.Log(context.Background(), slog.LevelInfo, "How now brown cow?")
 
-	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"267"}
+	// Output: {"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"256"}
 }
 
 // RemovePassword is a gslog.AttrMapper that elides password attributes.

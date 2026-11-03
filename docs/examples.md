@@ -386,6 +386,9 @@ Package gcp contains a slog.Handler that writes log records to Google Cloud Logg
 With gcp.WithHTTPRequest, the gcp.Handler sets the HTTPRequest field of the logging.Entry.  The Logs Explorer shows the method, the status, the size, and the latency of the request in the summary of that entry.
 
 ```go
+// SPDX-FileCopyrightText: the original author or authors
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -895,7 +898,7 @@ func main() {
 Output:
 
 ```text
-{"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"267"}
+{"file":"gcp/example_test.go","function":"m4o.io/gslog/gcp_test.ExampleNewHandler_withSourceAdded","line":"256"}
 ```
 
 ### gcp.NewHandler (withReplaceAttr)
@@ -1927,7 +1930,7 @@ func main() {
 Output:
 
 ```text
-{"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"160"}
+{"file":"stdout/example_test.go","function":"m4o.io/gslog/stdout_test.ExampleNewHandler_withSourceAdded","line":"149"}
 ```
 
 ### stdout.NewHandler (withReplaceAttr)
