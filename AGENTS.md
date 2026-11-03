@@ -42,6 +42,22 @@ Use these skills from `.claude/skills/` when the task matches:
 
 `make check` runs `test`, `lint`, `check-fmt`, and `check-docs`.
 
+## Before each commit
+
+Do all of these steps before each commit. Do not ask for permission to do
+them.
+
+1. Run `make fmt`.
+2. Use the `asd-ste100` skill to check each comment that the change adds or
+   changes. Also check the commit body.
+3. Run `/code-review` against the diff, unless the change is trivial.
+4. Use the `go-benchmarks` skill if the change touches a hot path that this
+   file lists.
+5. Run `make check` in the working tree.
+
+Tell the user which steps you did and which steps you skipped. Give the reason
+for each skipped step.
+
 ## Hot paths
 
 The `go-benchmarks` skill applies to the log path: `Handle`, `WithAttrs`,
