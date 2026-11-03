@@ -31,6 +31,7 @@ Use these skills from `.claude/skills/` when the task matches:
 - Format check: `make check-fmt`
 - Unit tests, with the race detector: `make test`
 - Coverage: `make coverage`
+- Fuzz: `make fuzz FUZZ=<target> FUZZ_PKG=<package> FUZZTIME=<duration>`
 - Lint: `make lint`
 - Vulnerability scan: `make vuln`
 - Regenerate `docs/examples.md`: `make docs`

@@ -5,10 +5,14 @@ GOVULNCHECK_VERSION := v1.9.0
 
 EXAMPLES_DOC := docs/examples.md
 
+FUZZ ?= FuzzHandle
+FUZZ_PKG ?= ./stdout
+FUZZTIME ?= 1m
+
 # Only tests use these paths. The coverage profile does not include them.
 COVERAGE_EXCLUDE := /benchmark/|/testdata/|^m4o\.io/gslog/internal/testhelp/
 
-.PHONY: all build test coverage lint fmt check-fmt vuln docs check-docs tidy clean check ci
+.PHONY: all build test coverage fuzz lint fmt check-fmt vuln docs check-docs tidy clean check ci
 
 all: build check
 
@@ -23,6 +27,9 @@ coverage:
 	grep -vE '$(COVERAGE_EXCLUDE)' coverage.out > coverage.filtered.out
 	mv coverage.filtered.out coverage.out
 	go tool cover -func=coverage.out
+
+fuzz:
+	go test -run '^$$' -fuzz '^$(FUZZ)$$' -fuzztime $(FUZZTIME) $(FUZZ_PKG)
 
 $(GOLANGCI_LINT):
 	GOBIN="$(GOLANGCI_LINT_BIN)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
