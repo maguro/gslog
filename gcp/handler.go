@@ -67,24 +67,18 @@ func NewHandler(logger Logger, opts ...gslog.Option) *Handler {
 
 	o := options.ApplyOptions(opts...)
 
-	return newHandlerWithOptions(logger, o)
-}
-
-func newHandlerWithOptions(logger Logger, opts *options.Options) *Handler {
-	handler := &Handler{
+	return &Handler{
 		log:   logger,
-		level: opts.Level,
+		level: o.Level,
 
-		addSource:       opts.AddSource,
-		entryAugmentors: opts.EntryAugmentors,
-		errorReporter:   opts.ErrorReporter,
-		replaceAttr:     mapper.Wrap(opts.ReplaceAttr),
+		addSource:       o.AddSource,
+		entryAugmentors: o.EntryAugmentors,
+		errorReporter:   o.ErrorReporter,
+		replaceAttr:     mapper.Wrap(o.ReplaceAttr),
 
 		payload: &spb.Struct{Fields: make(map[string]*spb.Value)},
 		groups:  nil,
 	}
-
-	return handler
 }
 
 // WithLeveler returns a copy of the handler that uses the supplied leveler.
@@ -125,8 +119,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	attr.DecorateWith(payload, a)
 
-	report, ok := h.errorReporter.For(record.Level)
-	if ok {
+	if report, ok := h.errorReporter.For(record.Level); ok {
 		decorateErrorReport(payload, &report)
 	}
 
@@ -149,16 +142,16 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 // WithAttrs returns a copy of the handler.  The attributes of the copy are
 // the attributes of h followed by attrs.
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	handler2 := h.clone()
+	h2 := h.clone()
 
 	payload, current := copyPath(h.payload, h.groups)
-	handler2.payload = payload
+	h2.payload = payload
 
 	for _, a := range attrs {
 		h.decorateAttr(current, a)
 	}
 
-	return handler2
+	return h2
 }
 
 // WithGroup returns a copy of the handler.  The groups of the copy are the
@@ -169,16 +162,16 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 	}
 
 	name = entry.ValidUTF8(name)
-	handler2 := h.clone()
+	h2 := h.clone()
 
 	payload, current := copyPath(h.payload, h.groups)
-	handler2.payload = payload
+	h2.payload = payload
 
 	current.Fields[name] = attr.NewStructValue(&spb.Struct{Fields: make(map[string]*spb.Value)})
 
-	handler2.groups = append(handler2.groups, name)
+	h2.groups = append(h2.groups, name)
 
-	return handler2
+	return h2
 }
 
 // Flush blocks until the logger sends every entry buffered before the call.

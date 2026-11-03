@@ -78,7 +78,7 @@ func NewHandler(w io.Writer, opts ...gslog.Option) *Handler {
 	o := options.ApplyOptions(opts...)
 
 	return &Handler{
-		out:   &lineWriter{w: w, mu: sync.Mutex{}},
+		out:   &lineWriter{w: w},
 		level: o.Level,
 
 		addSource:       o.AddSource,
@@ -130,9 +130,7 @@ func (h *Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	w.CloseLine()
 
-	err := h.out.write(w.Buf())
-
-	if err != nil {
+	if err := h.out.write(w.Buf()); err != nil {
 		return fmt.Errorf("failed to write log entry: %w", err)
 	}
 
@@ -152,11 +150,11 @@ func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		h.appendMapped(w, a)
 	}
 
-	handler2 := h.clone()
-	handler2.prefix[depth] = w.Buf()
-	handler2.reportPrefix = jbuf.JoinMembers(h.reportPrefix, w.ReportMembers())
+	h2 := h.clone()
+	h2.prefix[depth] = w.Buf()
+	h2.reportPrefix = jbuf.JoinMembers(h.reportPrefix, w.ReportMembers())
 
-	return handler2
+	return h2
 }
 
 // WithGroup returns a copy of the handler.  The groups of the copy are the
@@ -171,12 +169,12 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 
 	depth := len(h.groups)
 
-	handler2 := h.clone()
-	handler2.prefix[depth] = jbuf.RemoveMember(h.prefix[depth], name)
-	handler2.groups = append(handler2.groups, name)
-	handler2.prefix = append(handler2.prefix, nil)
+	h2 := h.clone()
+	h2.prefix[depth] = jbuf.RemoveMember(h.prefix[depth], name)
+	h2.groups = append(h2.groups, name)
+	h2.prefix = append(h2.prefix, nil)
 
-	return handler2
+	return h2
 }
 
 // clone returns a copy of the handler.  The copy shares the serialized
@@ -294,8 +292,8 @@ func (h *Handler) appendMapped(w *jbuf.Writer, a slog.Attr) {
 
 // appendAttr appends the attribute as a JSON member.  For a value that
 // encoding/json cannot encode, the member is the string "!ERROR:" followed
-// by the error text.  At the top level, appendAttr
-// appends the attribute to the writer that Member returns for the key.
+// by the error text.  At the top level, appendAttr appends the attribute to
+// the writer that Member returns for the key.
 func (h *Handler) appendAttr(w *jbuf.Writer, a slog.Attr, topLevel bool) {
 	v := a.Value.Resolve()
 
